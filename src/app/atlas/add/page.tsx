@@ -14,6 +14,7 @@ import {
   publishExistingJourney,
   upsertSavedJourneyFromTrip,
 } from "@/app/lib/atlas-journeys";
+import { uploadPhoto } from "@/app/lib/upload-photo";
 
 const fallbackCoverImage =
   "https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?auto=format&fit=crop&w=1800&q=80";
@@ -131,58 +132,6 @@ function buildPastJourneyForm(args: {
   };
 }
 
-function compressImageToDataUrl(file: File) {
-  return new Promise<string>((resolve, reject) => {
-    const reader = new FileReader();
-    const image = new Image();
-
-    reader.onload = () => {
-      if (typeof reader.result !== "string") {
-        reject(new Error("Could not read file"));
-        return;
-      }
-
-      image.src = reader.result;
-    };
-
-    reader.onerror = () => reject(new Error("Could not read file"));
-
-    image.onload = () => {
-      const canvas = document.createElement("canvas");
-      const maxDimension = 900;
-      const scale = Math.min(
-        1,
-        maxDimension / Math.max(image.width, image.height)
-      );
-
-      canvas.width = Math.max(1, Math.round(image.width * scale));
-      canvas.height = Math.max(1, Math.round(image.height * scale));
-
-      const ctx = canvas.getContext("2d");
-
-      if (!ctx) {
-        reject(new Error("Could not compress image"));
-        return;
-      }
-
-      ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
-
-      resolve(canvas.toDataURL("image/jpeg", 0.58));
-    };
-
-    image.onerror = () => reject(new Error("Could not load image"));
-    reader.readAsDataURL(file);
-  });
-}
-
-function getApproxStorageSizeMb(value: unknown) {
-  try {
-    return new Blob([JSON.stringify(value)]).size / 1024 / 1024;
-  } catch {
-    return 0;
-  }
-}
-
 export default function AddPastJourneyPage() {
   const router = useRouter();
 
@@ -234,7 +183,7 @@ export default function AddPastJourneyPage() {
 
       const nextPhotos = await Promise.all(
         filesToUpload.map(async (file) => {
-          const url = await compressImageToDataUrl(file);
+          const url = await uploadPhoto(file, "past-trips");
 
           return {
             id: createJourneyPhotoId(),
@@ -249,15 +198,15 @@ export default function AddPastJourneyPage() {
 
       if (files.length > remainingSlots) {
         setMessage(
-          `Added ${filesToUpload.length} photos. Atlas supports up to ${MAX_PAST_JOURNEY_PHOTOS} photos per past journey for now.`
+          `Uploaded ${filesToUpload.length} photos. Atlas supports up to ${MAX_PAST_JOURNEY_PHOTOS} photos per past journey for now.`
         );
       } else {
-        setMessage(`${filesToUpload.length} photo${filesToUpload.length === 1 ? "" : "s"} added and compressed.`);
-        window.setTimeout(() => setMessage(""), 2200);
+        setMessage(`${filesToUpload.length} photo${filesToUpload.length === 1 ? "" : "s"} uploaded to Atlas cloud storage.`);
+        window.setTimeout(() => setMessage(""), 2400);
       }
     } catch (error) {
       console.error("Photo upload failed", error);
-      setMessage("Could not upload one or more photos. Try fewer photos or smaller images.");
+      setMessage("Could not upload one or more photos. Check your Supabase Storage bucket and try again.");
     } finally {
       setIsUploading(false);
       e.target.value = "";
@@ -336,16 +285,6 @@ export default function AddPastJourneyPage() {
         creatorAvatar: creatorProfile.avatar,
       };
 
-      const approxSizeMb = getApproxStorageSizeMb(payloadPreview);
-
-      if (approxSizeMb > 4.5) {
-        setMessage(
-          "This trip is still too large for browser storage. Remove a few photos or use smaller images. Cloud photo storage is the next upgrade."
-        );
-        setIsSaving(false);
-        return;
-      }
-
       const journey = upsertSavedJourneyFromTrip(payloadPreview);
 
       if (postToAtlasWorld) {
@@ -408,7 +347,7 @@ export default function AddPastJourneyPage() {
     } catch (error) {
       console.error("Save past journey failed", error);
       setMessage(
-        "Could not save this trip. Try removing a few photos or uploading smaller images."
+        "Could not save this trip. Check your photo upload or Supabase Storage settings and try again."
       );
       setIsSaving(false);
     }
@@ -504,7 +443,7 @@ export default function AddPastJourneyPage() {
                       Upload the photos that make people stop
                     </h2>
                     <p className="mt-3 text-sm leading-6 text-neutral-700">
-                      The first photo becomes the cover. Atlas compresses uploads so you can save up to 20 photos in this version.
+                      The first photo becomes the cover. Atlas uploads your photos to cloud storage so this trip can work across devices and public pages.
                     </p>
                   </div>
                 </div>
@@ -531,7 +470,7 @@ export default function AddPastJourneyPage() {
                 </div>
 
                 <div className="mt-4 rounded-[20px] border border-neutral-200 bg-white/90 px-4 py-3 text-sm text-neutral-700">
-                  {photos.length}/{MAX_PAST_JOURNEY_PHOTOS} photos added. Uploads are compressed before saving so this works tonight without cloud storage.
+                  {photos.length}/{MAX_PAST_JOURNEY_PHOTOS} photos added. Photos upload to Atlas cloud storage before saving, so published trips can use real image URLs.
                 </div>
 
                 {photos.length > MAX_PAST_JOURNEY_PHOTOS ? (
@@ -542,7 +481,7 @@ export default function AddPastJourneyPage() {
 
                 {isUploading ? (
                   <div className="mt-4 rounded-[20px] border border-neutral-200 bg-white/90 px-4 py-3 text-sm text-neutral-700">
-                    Compressing and uploading photos...
+                    Uploading photos to Atlas cloud storage...
                   </div>
                 ) : null}
 
