@@ -170,6 +170,25 @@ export default function AtlasPage() {
     setProfileMessage("");
   }
 
+  function handleProfileImageUpload(file: File | null) {
+    if (!file) return;
+
+    const reader = new FileReader();
+
+    reader.onload = () => {
+      const result = reader.result;
+
+      if (typeof result === "string") {
+        setDraftProfile((current) => ({
+          ...current,
+          avatar: result,
+        }));
+      }
+    };
+
+    reader.readAsDataURL(file);
+  }
+
   function handleSaveProfile() {
     const nextProfile: AtlasProfile = {
       name: draftProfile.name.trim() || "Atlas Creator",
@@ -754,20 +773,63 @@ export default function AtlasPage() {
                 />
               </label>
 
-              <label className="block">
-                <span className="text-sm font-semibold text-slate-700">Avatar image URL</span>
-                <input
-                  value={draftProfile.avatar}
-                  onChange={(e) =>
-                    setDraftProfile((current) => ({
-                      ...current,
-                      avatar: e.target.value,
-                    }))
-                  }
-                  className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-[#d6b98c] focus:ring-4 focus:ring-[#d6b98c]/15"
-                  placeholder="https://..."
-                />
-              </label>
+              <div className="rounded-[24px] border border-slate-200 bg-slate-50 p-4">
+                <span className="text-sm font-semibold text-slate-700">Profile photo</span>
+
+                <div className="mt-4 flex flex-col gap-4 sm:flex-row sm:items-center">
+                  <img
+                    src={draftProfile.avatar || defaultAtlasProfile.avatar}
+                    alt="Profile preview"
+                    className="h-24 w-24 rounded-full object-cover ring-4 ring-white shadow-md"
+                  />
+
+                  <div className="flex-1">
+                    <label className="inline-flex cursor-pointer items-center justify-center rounded-2xl bg-slate-900 px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">
+                      Upload Photo
+                      <input
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={(e) => handleProfileImageUpload(e.target.files?.[0] || null)}
+                      />
+                    </label>
+
+                    <p className="mt-2 text-xs leading-5 text-slate-500">
+                      Choose a photo from your device. Atlas will save it on this browser for now.
+                    </p>
+
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setDraftProfile((current) => ({
+                          ...current,
+                          avatar: defaultAtlasProfile.avatar,
+                        }))
+                      }
+                      className="mt-3 text-xs font-semibold text-slate-500 underline decoration-slate-300 underline-offset-4"
+                    >
+                      Use default photo
+                    </button>
+                  </div>
+                </div>
+
+                <details className="mt-4 rounded-2xl bg-white p-3">
+                  <summary className="cursor-pointer text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
+                    Or paste image URL
+                  </summary>
+                  <input
+                    value={draftProfile.avatar}
+                    onChange={(e) =>
+                      setDraftProfile((current) => ({
+                        ...current,
+                        avatar: e.target.value,
+                      }))
+                    }
+                    className="mt-3 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-[#d6b98c] focus:ring-4 focus:ring-[#d6b98c]/15"
+                    placeholder="https://..."
+                  />
+                </details>
+              </div>
 
               <div className="flex items-center gap-3 rounded-2xl bg-slate-50 p-3">
                 <img

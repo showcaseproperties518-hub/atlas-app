@@ -1,12 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import {
   ATLAS_BUILD_PREFILL_STORAGE_KEY,
   ATLAS_BUILD_STORAGE_KEY,
 } from "@/app/lib/atlas-trip";
+import { createClient } from "@/app/lib/supabase-client";
 
 type ProfileJourney = {
   id: string;
@@ -33,7 +34,14 @@ type ProfileJourney = {
   saves: number;
 };
 
-const creatorJourneys: ProfileJourney[] = [
+type AtlasProfile = {
+  name: string;
+  username: string;
+  bio: string;
+  avatar: string;
+};
+
+const fallbackCreatorJourneys: ProfileJourney[] = [
   {
     id: "costa-rica-waterfalls-coast",
     title: "Costa Rica Waterfalls + Coast",
@@ -114,16 +122,105 @@ const creatorJourneys: ProfileJourney[] = [
   },
 ];
 
+
+const ATLAS_PROFILE_STORAGE_KEY = "atlas_profile";
+
+const defaultAtlasProfile: AtlasProfile = {
+  name: "Atlas Creator",
+  username: "atlascreator",
+  bio: "Building journeys, capturing moments, and mapping the world through Atlas.",
+  avatar:
+    "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=600&q=80",
+};
+
+function sanitizeUsername(value?: string) {
+  return (
+    (value || "")
+      .toLowerCase()
+      .replace(/^@/, "")
+      .replace(/[^a-z0-9]+/g, "")
+      .trim() || "atlascreator"
+  );
+}
+
+function getStoredAtlasProfile() {
+  if (typeof window === "undefined") return defaultAtlasProfile;
+
+  try {
+    const stored = window.localStorage.getItem(ATLAS_PROFILE_STORAGE_KEY);
+    if (!stored) return defaultAtlasProfile;
+
+    const parsed = JSON.parse(stored) as Partial<AtlasProfile>;
+
+    return {
+      name: parsed.name || defaultAtlasProfile.name,
+      username: sanitizeUsername(parsed.username || defaultAtlasProfile.username),
+      bio: parsed.bio || defaultAtlasProfile.bio,
+      avatar: parsed.avatar || defaultAtlasProfile.avatar,
+    };
+  } catch {
+    return defaultAtlasProfile;
+  }
+}
+
+function normalizeDateRange(startDate?: string | null, endDate?: string | null) {
+  if (startDate && endDate) return `${startDate} → ${endDate}`;
+  if (startDate) return startDate;
+  if (endDate) return endDate;
+  return "Published journey";
+}
+
+function mapDbJourneyToProfileJourney(journey: any, index: number): ProfileJourney {
+  const form = journey.form || {};
+  const trip = journey.trip || {};
+
+  return {
+    id: journey.id,
+    title: journey.title || trip.title || "Untitled Atlas Journey",
+    destination: journey.destination || form.destination || "Unknown destination",
+    image:
+      journey.cover_image ||
+      form.coverImage ||
+      "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=1600&q=80",
+    duration: journey.duration || form.duration || "Flexible",
+    budget: journey.budget || form.budget || "Mid-range",
+    travelers: journey.travelers || form.travelers || "Travelers",
+    tripStyle: journey.trip_style || form.tripStyle || "Adventure",
+    energyLevel: journey.energy_level || form.energyLevel || "Balanced",
+    gemsPreference: form.gemsPreference || "Mix of both",
+    travelPace: form.travelPace || "Flexible",
+    stayType: journey.stay_type || form.stayType || "Best value mix",
+    transportType: journey.transport_type || form.transportType || "Mixed",
+    flightOrigin: journey.flight_origin || form.flightOrigin || "Albany, NY",
+    interests: Array.isArray(form.interests) ? form.interests : [],
+    tags: [
+      "Published",
+      journey.trip_style || form.tripStyle || "Atlas trip",
+      journey.energy_level || form.energyLevel || "Balanced",
+      journey.cover_image ? "Photo route" : "AI route",
+    ].filter(Boolean),
+    dateRange: normalizeDateRange(journey.start_date, journey.end_date),
+    description:
+      journey.vibe_summary ||
+      trip.vibeSummary ||
+      journey.subtitle ||
+      trip.subtitle ||
+      "A published Atlas journey ready to view, save, remix, and build from.",
+    published: Boolean(journey.is_published ?? true),
+    photoCount: journey.cover_image ? 1 : 0,
+    remixes: 42 + index * 17,
+    saves: 18 + index * 11,
+  };
+}
+
 function formatUsername(raw?: string | string[]) {
   const username = Array.isArray(raw) ? raw[0] : raw;
-  const clean = username || "alex";
+  const clean = username || "atlascreator";
   return clean.replace(/^@/, "");
 }
 
 function getDisplayName(username: string) {
   if (username.toLowerCase() === "daniel") return "Daniel";
-  if (username.toLowerCase() === "alex") return "Alex Johnson";
-
   return username
     .split(/[-_.]/)
     .filter(Boolean)
@@ -136,7 +233,7 @@ function getCreatorBio(username: string) {
     return "Building Atlas through real trips, family memories, visual routes, and AI-powered travel planning.";
   }
 
-  return "Exploring hidden gems, local flavors, and unforgettable places. Saving journeys, refining them, and sharing the best ones with Atlas.";
+  return "Building journeys, capturing moments, and mapping the world through Atlas.";
 }
 
 function buildResultsPayload(journey: ProfileJourney) {
@@ -182,13 +279,68 @@ export default function UserProfilePage() {
   const params = useParams();
   const router = useRouter();
   const username = formatUsername(params?.username);
-  const displayName = getDisplayName(username);
+  const [profile, setProfile] = useState<AtlasProfile>(defaultAtlasProfile);
+  const [creatorJourneys, setCreatorJourneys] = useState<ProfileJourney[]>([]);
+  const [isLoadingJourneys, setIsLoadingJourneys] = useState(true);
+
+  const profileMatchesRoute = sanitizeUsername(profile.username) === sanitizeUsername(username);
+  const displayName = profileMatchesRoute ? profile.name : getDisplayName(username);
+  const profileBio = profileMatchesRoute ? profile.bio : getCreatorBio(username);
+  const profileAvatar = profileMatchesRoute ? profile.avatar : defaultAtlasProfile.avatar;
+
+  useEffect(() => {
+    setProfile(getStoredAtlasProfile());
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadCreatorJourneys() {
+      try {
+        setIsLoadingJourneys(true);
+        const supabase = createClient();
+
+        const { data, error } = await supabase
+          .from("journeys")
+          .select("*")
+          .eq("is_published", true)
+          .order("updated_at", { ascending: false });
+
+        if (error) {
+          console.error("Failed to load profile journeys", error);
+          if (!cancelled) setCreatorJourneys([]);
+          return;
+        }
+
+        const mapped = ((data || []) as any[]).map(mapDbJourneyToProfileJourney);
+
+        if (!cancelled) {
+          setCreatorJourneys(mapped);
+        }
+      } catch (error) {
+        console.error("Failed to load profile journeys", error);
+        if (!cancelled) setCreatorJourneys([]);
+      } finally {
+        if (!cancelled) setIsLoadingJourneys(false);
+      }
+    }
+
+    loadCreatorJourneys();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const visibleJourneys = creatorJourneys.length > 0 ? creatorJourneys : [];
+
+  const heroJourneys = visibleJourneys.length > 0 ? visibleJourneys : fallbackCreatorJourneys.slice(0, 3);
 
   const stats = useMemo(() => {
-    const published = creatorJourneys.filter((journey) => journey.published).length;
-    const photos = creatorJourneys.reduce((sum, journey) => sum + journey.photoCount, 0);
-    const remixes = creatorJourneys.reduce((sum, journey) => sum + journey.remixes, 0);
-    const saves = creatorJourneys.reduce((sum, journey) => sum + journey.saves, 0);
+    const published = visibleJourneys.filter((journey) => journey.published).length;
+    const photos = visibleJourneys.reduce((sum, journey) => sum + journey.photoCount, 0);
+    const remixes = visibleJourneys.reduce((sum, journey) => sum + journey.remixes, 0);
+    const saves = visibleJourneys.reduce((sum, journey) => sum + journey.saves, 0);
 
     return {
       published,
@@ -196,7 +348,7 @@ export default function UserProfilePage() {
       remixes,
       saves,
     };
-  }, []);
+  }, [visibleJourneys]);
 
   function handleViewJourney(journey: ProfileJourney) {
     window.localStorage.removeItem(ATLAS_BUILD_PREFILL_STORAGE_KEY);
@@ -241,7 +393,7 @@ export default function UserProfilePage() {
               <div className="flex flex-col gap-5 sm:flex-row sm:items-center">
                 <div className="h-28 w-28 overflow-hidden rounded-full shadow-lg ring-4 ring-white/80">
                   <img
-                    src="https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=600&q=80"
+                    src={profileAvatar}
                     alt={displayName}
                     className="h-full w-full object-cover"
                   />
@@ -259,13 +411,13 @@ export default function UserProfilePage() {
 
                   <p className="mt-1 text-neutral-500">@{username}</p>
                   <p className="mt-4 max-w-xl text-sm leading-6 text-neutral-700">
-                    {getCreatorBio(username)}
+                    {profileBio}
                   </p>
                 </div>
               </div>
 
               <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
-                <StatCard label="Trips" value={creatorJourneys.length} />
+                <StatCard label="Trips" value={visibleJourneys.length} />
                 <StatCard label="Published" value={stats.published} />
                 <StatCard label="Photos" value={stats.photos} />
                 <StatCard label="Remixes" value={stats.remixes} />
@@ -291,20 +443,20 @@ export default function UserProfilePage() {
               <div className="grid h-[520px] grid-cols-2 gap-1">
                 <div className="relative overflow-hidden">
                   <img
-                    src={creatorJourneys[0].image}
-                    alt={creatorJourneys[0].title}
+                    src={heroJourneys[0]?.image || fallbackCreatorJourneys[0].image}
+                    alt={heroJourneys[0]?.title || fallbackCreatorJourneys[0].title}
                     className="h-full w-full object-cover"
                   />
                 </div>
                 <div className="grid gap-1">
                   <img
-                    src={creatorJourneys[1].image}
-                    alt={creatorJourneys[1].title}
+                    src={heroJourneys[1]?.image || fallbackCreatorJourneys[1].image}
+                    alt={heroJourneys[1]?.title || fallbackCreatorJourneys[1].title}
                     className="h-full w-full object-cover"
                   />
                   <img
-                    src={creatorJourneys[2].image}
-                    alt={creatorJourneys[2].title}
+                    src={heroJourneys[2]?.image || fallbackCreatorJourneys[2].image}
+                    alt={heroJourneys[2]?.title || fallbackCreatorJourneys[2].title}
                     className="h-full w-full object-cover"
                   />
                 </div>
@@ -340,15 +492,44 @@ export default function UserProfilePage() {
               Published journeys
             </p>
             <h2 className="mt-2 text-3xl font-semibold leading-tight">
-              Trips worth opening, saving, and remixing
+              {visibleJourneys.length > 0 ? "Trips worth opening, saving, and remixing" : "No public trips yet"}
             </h2>
             <p className="mt-3 max-w-3xl text-sm leading-6 text-neutral-700">
-              Creator profiles make Atlas feel alive. Every trip below can open into the full Results
-              experience or become the starting point for someone else’s version.
+              {visibleJourneys.length > 0
+                ? "Creator profiles make Atlas feel alive. Every trip below can open into the full Results experience or become the starting point for someone else’s version."
+                : "Publish a journey from My Atlas and it will appear here as part of your public travel profile."}
             </p>
           </div>
 
-          {creatorJourneys.map((journey, index) => (
+          {!isLoadingJourneys && visibleJourneys.length === 0 ? (
+            <div className="rounded-[34px] border border-white/70 bg-white/84 p-8 text-center shadow-[0_20px_62px_rgba(0,0,0,0.09)]">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.34em] text-neutral-500">
+                Public profile
+              </p>
+              <h3 className="mt-2 text-3xl font-semibold text-neutral-950">
+                No published journeys yet
+              </h3>
+              <p className="mx-auto mt-3 max-w-xl text-sm leading-6 text-neutral-600">
+                Save and publish a journey from My Atlas. Once published, it will show here and become part of this creator profile.
+              </p>
+              <div className="mt-6 flex flex-wrap justify-center gap-3">
+                <Link
+                  href="/atlas"
+                  className="rounded-2xl bg-neutral-950 px-5 py-3 text-sm font-semibold text-white"
+                >
+                  Open My Atlas
+                </Link>
+                <Link
+                  href="/build"
+                  className="rounded-2xl border border-neutral-300 bg-white px-5 py-3 text-sm font-semibold text-neutral-900"
+                >
+                  Build a Trip
+                </Link>
+              </div>
+            </div>
+          ) : null}
+
+          {visibleJourneys.map((journey, index) => (
             <article
               key={journey.id}
               className="group overflow-hidden rounded-[34px] border border-white/70 bg-white/84 shadow-[0_20px_62px_rgba(0,0,0,0.09)] transition duration-300 hover:-translate-y-1 hover:shadow-[0_28px_82px_rgba(0,0,0,0.14)]"
