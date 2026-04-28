@@ -23,13 +23,32 @@ export type AtlasInterest =
   | "Wellness"
   | "Scenic drives";
 
+export type AtlasStayType =
+  | "Hotel"
+  | "Airbnb"
+  | "Boutique"
+  | "Luxury"
+  | "Best value mix";
+
+export type AtlasTransportType =
+  | "Rental car"
+  | "Public transit"
+  | "Uber / taxi"
+  | "Walkable"
+  | "Mixed";
+
 export type AtlasTripFormData = {
   destination: string;
+  flightOrigin?: string;
   duration: string;
+  startDate?: string;
+  endDate?: string;
   budget: string;
   travelers: string;
   energyLevel: AtlasEnergy;
   tripStyle: AtlasTripStyle;
+  stayType?: AtlasStayType;
+  transportType?: AtlasTransportType;
   gemsPreference: AtlasGemPreference;
   travelPace: AtlasTravelPace;
   interests: AtlasInterest[];
@@ -40,11 +59,16 @@ export const ATLAS_BUILD_PREFILL_STORAGE_KEY = "atlas-build-prefill";
 
 export const defaultAtlasTripForm: AtlasTripFormData = {
   destination: "",
+  flightOrigin: "",
   duration: "4 days",
+  startDate: "",
+  endDate: "",
   budget: "$2,000 - $4,000",
   travelers: "Couple",
   energyLevel: "Balanced",
   tripStyle: "Adventure",
+  stayType: "Best value mix",
+  transportType: "Mixed",
   gemsPreference: "Mix of both",
   travelPace: "Flexible",
   interests: ["Food", "Nature", "Culture"],
@@ -94,6 +118,22 @@ export const tripStyleOptions: AtlasTripStyle[] = [
   "Spontaneous",
 ];
 
+export const stayTypeOptions: AtlasStayType[] = [
+  "Hotel",
+  "Airbnb",
+  "Boutique",
+  "Luxury",
+  "Best value mix",
+];
+
+export const transportTypeOptions: AtlasTransportType[] = [
+  "Rental car",
+  "Public transit",
+  "Uber / taxi",
+  "Walkable",
+  "Mixed",
+];
+
 export const gemOptions: AtlasGemPreference[] = [
   "Hidden gems",
   "Mix of both",
@@ -131,6 +171,7 @@ export type AtlasTripOutput = {
   subtitle: string;
   staySuggestion: string;
   transportSuggestion: string;
+  flightSuggestion: string;
   vibeSummary: string;
   highlights: string[];
   days: AtlasDayPlan[];
@@ -161,7 +202,55 @@ function getDayCount(duration: string) {
   }
 }
 
+function formatTripDate(dateValue?: string) {
+  if (!dateValue) return "";
+
+  try {
+    return new Date(dateValue).toLocaleDateString(undefined, {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+    });
+  } catch {
+    return dateValue;
+  }
+}
+
+function getTripDateLabel(form: AtlasTripFormData) {
+  if (!form.startDate && !form.endDate) return "";
+
+  const start = formatTripDate(form.startDate);
+  const end = formatTripDate(form.endDate);
+
+  if (start && end) return `${start} - ${end}`;
+  return start || end;
+}
+
 function getAreaToStay(form: AtlasTripFormData) {
+  if (form.stayType === "Luxury") {
+    return "Stay in a polished central neighborhood with premium hotels, elevated service, and walkable dining nearby.";
+  }
+
+  if (form.stayType === "Boutique") {
+    return "Stay in a character-rich neighborhood with design-forward properties, local charm, and strong food options nearby.";
+  }
+
+  if (form.stayType === "Airbnb") {
+    if (form.transportType === "Rental car") {
+      return "Look for a well-located Airbnb with easy parking, smooth arrival logistics, and strong access to scenic routes or day trips.";
+    }
+
+    return "Look for an Airbnb in a neighborhood with local character, food nearby, and easy access to the parts of the trip you’ll use most.";
+  }
+
+  if (form.stayType === "Hotel") {
+    if (form.transportType === "Walkable") {
+      return "Stay in a central, walkable district so restaurants, sights, and evening plans feel easy without needing extra transfers.";
+    }
+
+    return "Stay in a reliable central hotel base that keeps logistics simple and gives Atlas a clean anchor for the trip.";
+  }
+
   if (form.tripStyle === "Luxury") {
     return "Stay in a polished central neighborhood with walkable dining and upscale hotels.";
   }
@@ -186,6 +275,26 @@ function getAreaToStay(form: AtlasTripFormData) {
 }
 
 function getTransportSuggestion(form: AtlasTripFormData) {
+  if (form.transportType === "Rental car") {
+    return "Atlas should build this trip around drive-friendly flow, parking-aware stops, scenic routes, and flexible timing between anchors.";
+  }
+
+  if (form.transportType === "Public transit") {
+    return "Atlas should keep the trip clustered around strong transit corridors, easy station access, and fewer dead-time transfers.";
+  }
+
+  if (form.transportType === "Uber / taxi") {
+    return "Atlas should prioritize smooth pickup areas, compact routing, and neighborhoods where rides stay simple and time-efficient.";
+  }
+
+  if (form.transportType === "Walkable") {
+    return "Atlas should centralize the itinerary so the best food, sights, and evening energy stay close together with minimal friction.";
+  }
+
+  if (form.transportType === "Mixed") {
+    return "Atlas should combine walking with light transit or short rides so the trip feels flexible without getting overplanned.";
+  }
+
   if (form.interests.includes("Scenic drives") || form.tripStyle === "Adventure") {
     return "A rental car is likely worth it so Atlas can build scenic stops, hidden detours, and flexible pacing into your route.";
   }
@@ -197,12 +306,45 @@ function getTransportSuggestion(form: AtlasTripFormData) {
   return "Use a mix of walking, local transit, and short rideshares unless the destination is spread out.";
 }
 
+function getFlightSuggestion(form: AtlasTripFormData) {
+  if (!form.flightOrigin?.trim()) {
+    return "Add a departure airport and Atlas can later shape flight timing, arrival flow, and booking links around your real route.";
+  }
+
+  if (form.duration === "Weekend" || form.duration === "3 days") {
+    return `Because this is a shorter trip, Atlas should prioritize the cleanest outbound and return options from ${form.flightOrigin} with minimal connection friction.`;
+  }
+
+  if (form.energyLevel === "Easygoing") {
+    return `Atlas should favor smoother flight timing from ${form.flightOrigin}, with easier arrival windows and less rushed same-day movement.`;
+  }
+
+  return `Atlas can use ${form.flightOrigin} as the trip’s flight anchor and later connect this plan to best-fit route and booking options.`;
+}
+
 function buildHighlights(form: AtlasTripFormData) {
   const highlights = [
     `${getDestinationLabel(form.destination)} matched to a ${form.tripStyle.toLowerCase()} travel style`,
     `${form.energyLevel} pacing with ${form.travelPace.toLowerCase()} structure`,
     `${form.gemsPreference.toLowerCase()} balance built into each day`,
   ];
+
+  const tripDateLabel = getTripDateLabel(form);
+  if (tripDateLabel) {
+    highlights.push(`Travel window: ${tripDateLabel}`);
+  }
+
+  if (form.flightOrigin?.trim()) {
+    highlights.push(`Departure anchor: ${form.flightOrigin}`);
+  }
+
+  if (form.stayType) {
+    highlights.push(`Stay style: ${form.stayType}`);
+  }
+
+  if (form.transportType) {
+    highlights.push(`Getting around: ${form.transportType}`);
+  }
 
   if (form.interests.length > 0) {
     highlights.push(`Focus areas: ${form.interests.join(", ")}`);
@@ -217,6 +359,10 @@ function buildHighlights(form: AtlasTripFormData) {
 
 function getMorningLine(form: AtlasTripFormData, day: number) {
   if (day === 1) {
+    if (form.flightOrigin?.trim()) {
+      return `Easy arrival flow from ${form.flightOrigin}, coffee, neighborhood orientation, and Atlas’ first local stop in ${getDestinationLabel(form.destination)}.`;
+    }
+
     return `Easy arrival flow, coffee, neighborhood orientation, and Atlas’ first local stop in ${getDestinationLabel(form.destination)}.`;
   }
 
@@ -236,6 +382,14 @@ function getMorningLine(form: AtlasTripFormData, day: number) {
 }
 
 function getAfternoonLine(form: AtlasTripFormData, day: number) {
+  if (form.transportType === "Rental car") {
+    return "Build the middle of the day around route-based exploration, scenic movement, and one standout stop that feels worth the drive.";
+  }
+
+  if (form.transportType === "Walkable") {
+    return "Keep the afternoon tightly clustered so cafés, sights, and neighborhood wandering all flow without extra transit friction.";
+  }
+
   if (form.tripStyle === "Adventure") {
     return "Build the middle of the day around movement, route-based exploration, and one memorable signature stop.";
   }
@@ -256,6 +410,10 @@ function getAfternoonLine(form: AtlasTripFormData, day: number) {
 }
 
 function getEveningLine(form: AtlasTripFormData, day: number) {
+  if (form.transportType === "Walkable" && form.stayType === "Hotel") {
+    return "Close with a dinner anchor and an easy evening stroll near your hotel so the trip feels smooth, central, and relaxed.";
+  }
+
   if (form.interests.includes("Nightlife")) {
     return "Close with dinner, a lively bar area, and an evening flow that can stretch later if the energy is right.";
   }
@@ -284,6 +442,7 @@ function getDayTitle(form: AtlasTripFormData, day: number, totalDays: number) {
 export function createAtlasTripOutput(form: AtlasTripFormData): AtlasTripOutput {
   const totalDays = getDayCount(form.duration);
   const destination = getDestinationLabel(form.destination);
+  const tripDateLabel = getTripDateLabel(form);
 
   const days: AtlasDayPlan[] = Array.from({ length: totalDays }).map((_, index) => {
     const day = index + 1;
@@ -295,8 +454,8 @@ export function createAtlasTripOutput(form: AtlasTripFormData): AtlasTripOutput 
         day === 1
           ? `Atlas starts your ${destination} journey with an easy, confidence-building first day.`
           : day === totalDays
-          ? `A smoother final day with room for one more great stop before heading out.`
-          : `A balanced day shaped around ${form.tripStyle.toLowerCase()} travel, ${form.energyLevel.toLowerCase()} energy, and ${form.gemsPreference.toLowerCase()}.`,
+            ? `A smoother final day with room for one more great stop before heading out.`
+            : `A balanced day shaped around ${form.tripStyle.toLowerCase()} travel, ${form.energyLevel.toLowerCase()} energy, and ${form.gemsPreference.toLowerCase()}.`,
       morning: getMorningLine(form, day),
       afternoon: getAfternoonLine(form, day),
       evening: getEveningLine(form, day),
@@ -305,11 +464,14 @@ export function createAtlasTripOutput(form: AtlasTripFormData): AtlasTripOutput 
 
   return {
     title: `${destination}, built for you`,
-    subtitle: `A ${form.duration.toLowerCase()} Atlas trip shaped for ${form.travelers.toLowerCase()} travel, ${form.tripStyle.toLowerCase()} style, and ${form.energyLevel.toLowerCase()} energy.`,
+    subtitle: tripDateLabel
+      ? `A ${form.duration.toLowerCase()} Atlas trip for ${form.travelers.toLowerCase()} travel, timed for ${tripDateLabel}, with ${form.tripStyle.toLowerCase()} style and ${form.energyLevel.toLowerCase()} energy.`
+      : `A ${form.duration.toLowerCase()} Atlas trip shaped for ${form.travelers.toLowerCase()} travel, ${form.tripStyle.toLowerCase()} style, and ${form.energyLevel.toLowerCase()} energy.`,
     staySuggestion: getAreaToStay(form),
     transportSuggestion: getTransportSuggestion(form),
+    flightSuggestion: getFlightSuggestion(form),
     vibeSummary:
-      "Atlas is shaping this trip like a real travel agent would: matching pace, priorities, and personality instead of giving you a generic list.",
+      "Atlas is shaping this trip like a real travel agent would: matching pace, priorities, dates, personality, stay style, and movement instead of giving you a generic list.",
     highlights: buildHighlights(form),
     days,
   };
