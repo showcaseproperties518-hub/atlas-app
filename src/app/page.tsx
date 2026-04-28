@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { FormEvent, useState } from "react";
 import {
@@ -50,7 +49,7 @@ const localTripIdeas: HomeTripCard[] = [
     subtitle: "Scenic drives, short hikes, small towns, and easy photo stops",
     image:
       "https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=1200&q=80",
-    tag: "Local escape",
+    tag: "Local AI · Waterfalls",
     stats: "2 days · easy weekend",
     label: "Waterfalls",
     meta: "2 days · local reset",
@@ -74,7 +73,7 @@ const localTripIdeas: HomeTripCard[] = [
     subtitle: "Lake views, easy hikes, kid-friendly stops, and relaxed dinners",
     image:
       "https://images.unsplash.com/photo-1500534314209-a25ddb2bd429?auto=format&fit=crop&w=1200&q=80",
-    tag: "Near Albany",
+    tag: "Local AI · Lake trip",
     stats: "3 days · family friendly",
     label: "Lake trip",
     meta: "3 days · family",
@@ -94,11 +93,35 @@ const localTripIdeas: HomeTripCard[] = [
     },
   },
   {
+    title: "Saratoga Food + Spa Weekend",
+    subtitle: "Coffee, parks, mineral springs, restaurants, and an easy upscale reset",
+    image:
+      "https://images.unsplash.com/photo-1510798831971-661eb04b3739?auto=format&fit=crop&w=1200&q=80",
+    tag: "Local AI · Date trip",
+    stats: "2 days · polished weekend",
+    label: "Date trip",
+    meta: "2 days · local luxury",
+    prefill: {
+      destination: "Saratoga Springs food spa weekend",
+      duration: "Weekend",
+      budget: "Mid-range",
+      travelers: "Couple",
+      tripStyle: "Romantic local weekend",
+      energyLevel: "Easygoing",
+      gemsPreference: "Mix of iconic and local",
+      travelPace: "Relaxed",
+      stayType: "Boutique hotel",
+      transportType: "Rental car",
+      flightOrigin: "Albany, NY",
+      interests: ["Food", "Wellness", "Romance", "Culture"],
+    },
+  },
+  {
     title: "NYC Family Adventure",
     subtitle: "Skyline views, parks, pizza stops, museums, and city moments",
     image:
       "https://images.unsplash.com/photo-1499092346589-b9b6be3e94b2?auto=format&fit=crop&w=1200&q=80",
-    tag: "Family favorite",
+    tag: "Local AI · City",
     stats: "3 days · city energy",
     label: "City trip",
     meta: "3 days · 18 saves",
@@ -117,6 +140,102 @@ const localTripIdeas: HomeTripCard[] = [
       interests: ["Family", "Food", "Culture", "Photo spots"],
     },
   },
+  {
+    title: "Catskills Cabin + Falls",
+    subtitle: "Cabin mornings, waterfall walks, mountain towns, and slow evenings",
+    image:
+      "https://images.unsplash.com/photo-1441974231531-c6227db76b6e?auto=format&fit=crop&w=1200&q=80",
+    tag: "Local AI · Cabin route",
+    stats: "3 days · cozy nature",
+    label: "Cabin",
+    meta: "3 days · cozy",
+    prefill: {
+      destination: "Catskills cabin waterfalls weekend",
+      duration: "3 days",
+      budget: "Mid-range",
+      travelers: "Couple",
+      tripStyle: "Cabin + nature escape",
+      energyLevel: "Easygoing",
+      gemsPreference: "Hidden gems",
+      travelPace: "Relaxed",
+      stayType: "Cabin or Airbnb",
+      transportType: "Rental car",
+      flightOrigin: "Albany, NY",
+      interests: ["Nature", "Wellness", "Food", "Scenic drives"],
+    },
+  },
+  {
+    title: "Quebec City Winter Magic",
+    subtitle: "Old streets, cozy food stops, lights, and European charm close to home",
+    image:
+      "https://images.unsplash.com/photo-1519181245277-cffeb31da2e3?auto=format&fit=crop&w=1200&q=80",
+    tag: "Local AI · Winter",
+    stats: "4 days · cozy city",
+    label: "Winter",
+    meta: "4 days · close epic",
+    prefill: {
+      destination: "Quebec City winter weekend old town food",
+      duration: "4 days",
+      budget: "Mid-range",
+      travelers: "Couple",
+      tripStyle: "Culture + food + winter charm",
+      energyLevel: "Balanced",
+      gemsPreference: "Mix of iconic and local",
+      travelPace: "Relaxed",
+      stayType: "Boutique hotel",
+      transportType: "Walkable + car",
+      flightOrigin: "Albany, NY",
+      interests: ["Culture", "Food", "Romance", "Photo spots"],
+    },
+  },
+  {
+    title: "Cape Cod Beach House Weekend",
+    subtitle: "Beach mornings, seafood stops, lighthouse views, and slow coastal days",
+    image:
+      "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=1200&q=80",
+    tag: "Local AI · Beach",
+    stats: "4 days · summer coast",
+    label: "Beach",
+    meta: "4 days · summer",
+    prefill: {
+      destination: "Cape Cod beach house seafood weekend",
+      duration: "4 days",
+      budget: "Mid-range",
+      travelers: "Family",
+      tripStyle: "Beach + seafood + family",
+      energyLevel: "Easygoing",
+      gemsPreference: "Mix of iconic and local",
+      travelPace: "Relaxed",
+      stayType: "House rental",
+      transportType: "Rental car",
+      flightOrigin: "Albany, NY",
+      interests: ["Beach", "Family", "Food", "Scenic drives"],
+    },
+  },
+  {
+    title: "Wildwood Boardwalk + Beach",
+    subtitle: "Ocean mornings, rides, arcades, pizza, and classic family shore energy",
+    image:
+      "https://images.unsplash.com/photo-1500375592092-40eb2168fd21?auto=format&fit=crop&w=1200&q=80",
+    tag: "Local AI · Shore",
+    stats: "4 days · family beach",
+    label: "Boardwalk",
+    meta: "4 days · shore",
+    prefill: {
+      destination: "Wildwood New Jersey boardwalk beach family trip",
+      duration: "4 days",
+      budget: "Mid-range",
+      travelers: "Family",
+      tripStyle: "Beach + boardwalk family trip",
+      energyLevel: "Balanced",
+      gemsPreference: "Mix of iconic and local",
+      travelPace: "Relaxed",
+      stayType: "Beach rental",
+      transportType: "Rental car",
+      flightOrigin: "Albany, NY",
+      interests: ["Beach", "Family", "Food", "Theme parks"],
+    },
+  },
 ];
 
 const epicTripIdeas: HomeTripCard[] = [
@@ -125,7 +244,7 @@ const epicTripIdeas: HomeTripCard[] = [
     subtitle: "Waterfalls, glaciers, black sand beaches, and dramatic drives",
     image:
       "https://images.unsplash.com/photo-1476610182048-b716b8518aae?auto=format&fit=crop&w=900&q=80",
-    tag: "Epic route",
+    tag: "Epic AI · Ring road",
     stats: "7 days · bucket list",
     label: "Waterfalls",
     meta: "7 days · epic route",
@@ -145,11 +264,11 @@ const epicTripIdeas: HomeTripCard[] = [
     },
   },
   {
-    title: "Costa Rica Volcano Trip",
+    title: "Costa Rica Volcano + Coast",
     subtitle: "Rainforest, hot springs, volcano views, wildlife, and beaches",
     image:
       "https://images.unsplash.com/photo-1518182170546-07661fd94144?auto=format&fit=crop&w=900&q=80",
-    tag: "Trending now",
+    tag: "Epic AI · Rainforest",
     stats: "7 days · rainforest",
     label: "Rainforest",
     meta: "7 days · trending",
@@ -173,7 +292,7 @@ const epicTripIdeas: HomeTripCard[] = [
     subtitle: "Machu Picchu energy, mountain towns, markets, and big views",
     image:
       "https://images.unsplash.com/photo-1526392060635-9d6019884377?auto=format&fit=crop&w=900&q=80",
-    tag: "2026 watchlist",
+    tag: "Epic AI · Culture",
     stats: "8 days · culture + views",
     label: "Mountains",
     meta: "8 days · rising",
@@ -192,44 +311,174 @@ const epicTripIdeas: HomeTripCard[] = [
       interests: ["Culture", "Adventure", "Nature", "Food"],
     },
   },
+  {
+    title: "Alaska Glacier Journey",
+    subtitle: "Glaciers, wildlife, boat tours, mountain views, and big nature days",
+    image:
+      "https://images.unsplash.com/photo-1472396961693-142e6e269027?auto=format&fit=crop&w=900&q=80",
+    tag: "Epic AI · Big nature",
+    stats: "10 days · bucket list",
+    label: "Glaciers",
+    meta: "10 days · big nature",
+    prefill: {
+      destination: "Alaska glacier wildlife national park journey",
+      duration: "10 days",
+      budget: "Premium",
+      travelers: "Family",
+      tripStyle: "Big nature + wildlife",
+      energyLevel: "Balanced",
+      gemsPreference: "Mix of iconic and local",
+      travelPace: "Planned",
+      stayType: "Hotel + lodge",
+      transportType: "Rental car",
+      flightOrigin: "Albany, NY",
+      interests: ["Nature", "Wildlife", "Family", "Scenic drives"],
+    },
+  },
+  {
+    title: "Italy Slow Romance",
+    subtitle: "Slow mornings, beautiful streets, unforgettable dinners, and romantic pacing",
+    image:
+      "https://images.unsplash.com/photo-1516483638261-f4dbaf036963?auto=format&fit=crop&w=900&q=80",
+    tag: "Epic AI · Couple favorite",
+    stats: "7 days · romance",
+    label: "Romance",
+    meta: "7 days · couple",
+    prefill: {
+      destination: "Italy slow romance food villages coastal route",
+      duration: "7 days",
+      budget: "Premium",
+      travelers: "Couple",
+      tripStyle: "Romance + food + culture",
+      energyLevel: "Easygoing",
+      gemsPreference: "Mix of iconic and local",
+      travelPace: "Relaxed",
+      stayType: "Boutique hotels",
+      transportType: "Train + walking",
+      flightOrigin: "Albany, NY",
+      interests: ["Food", "Romance", "Culture", "Photo spots"],
+    },
+  },
+  {
+    title: "Japan Food + Temples",
+    subtitle: "Neon nights, temple mornings, train days, ramen, and quiet gardens",
+    image:
+      "https://images.unsplash.com/photo-1493976040374-85c8e12f0c0e?auto=format&fit=crop&w=900&q=80",
+    tag: "Epic AI · Dream trip",
+    stats: "9 days · culture",
+    label: "Japan",
+    meta: "9 days · dream",
+    prefill: {
+      destination: "Japan Tokyo Kyoto food temples first time route",
+      duration: "9 days",
+      budget: "Premium",
+      travelers: "Couple",
+      tripStyle: "Culture + food + city",
+      energyLevel: "Balanced",
+      gemsPreference: "Mix of iconic and local",
+      travelPace: "Planned",
+      stayType: "Hotel",
+      transportType: "Train + walking",
+      flightOrigin: "Albany, NY",
+      interests: ["Food", "Culture", "City", "Photo spots"],
+    },
+  },
+  {
+    title: "Paris Cafe Weekend",
+    subtitle: "Cafes, museums, old streets, pastries, and romantic city pacing",
+    image:
+      "https://images.unsplash.com/photo-1502602898657-3e91760cbb34?auto=format&fit=crop&w=900&q=80",
+    tag: "Epic AI · City classic",
+    stats: "5 days · culture",
+    label: "Paris",
+    meta: "5 days · classic",
+    prefill: {
+      destination: "Paris cafe weekend museums food romance",
+      duration: "5 days",
+      budget: "Premium",
+      travelers: "Couple",
+      tripStyle: "Romance + culture + food",
+      energyLevel: "Balanced",
+      gemsPreference: "Mix of iconic and local",
+      travelPace: "Relaxed",
+      stayType: "Boutique hotel",
+      transportType: "Walkable + metro",
+      flightOrigin: "Albany, NY",
+      interests: ["Food", "Culture", "Romance", "Photo spots"],
+    },
+  },
+  {
+    title: "Greek Islands First Timer",
+    subtitle: "Blue water, village walks, cliff views, beach days, and slow dinners",
+    image:
+      "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=900&q=80",
+    tag: "Epic AI · Island trip",
+    stats: "8 days · beach",
+    label: "Islands",
+    meta: "8 days · beach",
+    prefill: {
+      destination: "Greek Islands first time beaches villages romance",
+      duration: "8 days",
+      budget: "Premium",
+      travelers: "Couple",
+      tripStyle: "Beach + romance + villages",
+      energyLevel: "Easygoing",
+      gemsPreference: "Mix of iconic and local",
+      travelPace: "Relaxed",
+      stayType: "Boutique hotel",
+      transportType: "Ferry + walking",
+      flightOrigin: "Albany, NY",
+      interests: ["Beach", "Food", "Romance", "Photo spots"],
+    },
+  },
 ];
+
+function getRandomItem<T>(items: T[]) {
+  return items[Math.floor(Math.random() * items.length)];
+}
+
+function getRandomTripSet() {
+  const shuffledLocal = [...localTripIdeas].sort(() => Math.random() - 0.5);
+  const shuffledEpic = [...epicTripIdeas].sort(() => Math.random() - 0.5);
+
+  const localOne = shuffledLocal[0];
+  const localTwo = shuffledLocal[1] ?? shuffledLocal[0];
+  const epicOne = shuffledEpic[0];
+  const epicTwo = shuffledEpic[1] ?? shuffledEpic[0];
+  const epicThree = shuffledEpic[2] ?? shuffledEpic[0];
+
+  const mixedHeroPool = [epicOne, localOne, epicTwo, localTwo, epicThree]
+    .filter(Boolean)
+    .sort(() => Math.random() - 0.5);
+
+  return {
+    rotatingLocalTrip: localOne,
+    rotatingEpicTrip: epicOne,
+    nearbyTrips: [localOne, localTwo].sort(() => Math.random() - 0.5),
+    heroTrips: mixedHeroPool.slice(0, 3),
+    travelerStories: [
+      {
+        title: epicOne.title,
+        subtitle: epicOne.subtitle,
+        image: epicOne.image,
+        prefill: epicOne.prefill,
+      },
+    ],
+  };
+}
 
 export default function HomePage() {
   const router = useRouter();
   const [destination, setDestination] = useState("");
 
-  const rotatingLocalTrip = useMemo(() => {
-    const index = new Date().getDate() % localTripIdeas.length;
-    return localTripIdeas[index];
-  }, []);
-
-  const rotatingEpicTrip = useMemo(() => {
-    const index = new Date().getDate() % epicTripIdeas.length;
-    return epicTripIdeas[index];
-  }, []);
-
-  const nearbyTrips = useMemo(() => {
-    return [rotatingLocalTrip, localTripIdeas[(new Date().getDate() + 1) % localTripIdeas.length]];
-  }, [rotatingLocalTrip]);
-
-  const heroTrips = useMemo(() => {
-    return [
+  const [
+    {
       rotatingEpicTrip,
-      rotatingLocalTrip,
-      epicTripIdeas[(new Date().getDate() + 1) % epicTripIdeas.length],
-    ];
-  }, [rotatingEpicTrip, rotatingLocalTrip]);
-
-  const travelerStories = useMemo(() => {
-    return [
-      {
-        title: rotatingEpicTrip.title,
-        subtitle: rotatingEpicTrip.subtitle,
-        image: rotatingEpicTrip.image,
-        prefill: rotatingEpicTrip.prefill,
-      },
-    ];
-  }, [rotatingEpicTrip]);
+      nearbyTrips,
+      heroTrips,
+      travelerStories,
+    },
+  ] = useState(getRandomTripSet);
 
   const normalizeTripForm = (prefill: TripPrefill) => {
     const destinationValue = prefill.destination.trim();
@@ -472,7 +721,7 @@ export default function HomePage() {
 
             <div className="mt-6 flex items-center justify-between">
               <p className="text-sm font-semibold text-white/90">
-                Today’s trip starters
+                Fresh AI trip starters
               </p>
               <button
                 type="button"
@@ -545,7 +794,7 @@ export default function HomePage() {
           <div className="mb-4 flex items-end justify-between gap-4">
             <div>
               <p className="text-sm font-bold uppercase tracking-[0.18em] text-[#b99054]">
-                Local right now
+                Local AI right now
               </p>
               <h2 className="mt-1 text-3xl font-bold tracking-tight text-[#1f2933]">
                 Easy trips near you
@@ -633,9 +882,7 @@ export default function HomePage() {
               Local ideas, trending places, and real journeys will blend together.
             </h3>
             <p className="mt-2 text-sm leading-6 text-white/75">
-              Today these are smart Atlas starter trips. Next, Atlas can refresh
-              these from an AI endpoint using seasonality, user location, and
-              published journeys.
+              These starter trips refresh from a larger Atlas AI idea pool until real published journeys take over the homepage.
             </p>
           </div>
         </div>
@@ -646,7 +893,7 @@ export default function HomePage() {
         <div className="mx-auto max-w-6xl">
           <div className="mb-4">
             <p className="text-sm font-bold uppercase tracking-[0.18em] text-[#b99054]">
-              Epic right now
+              Epic AI right now
             </p>
             <h2 className="mt-1 text-3xl font-bold tracking-tight text-[#1f2933]">
               One idea can become your version
@@ -820,7 +1067,7 @@ export default function HomePage() {
 
                     <div className="pt-4">
                       <div className="mb-2 inline-flex rounded-full bg-[#f1dfc4] px-3 py-1 text-xs font-bold text-[#8a6631]">
-                        AI starter trip
+                        Generated by Atlas AI
                       </div>
 
                       <h3 className="text-2xl font-bold text-[#1f2933]">

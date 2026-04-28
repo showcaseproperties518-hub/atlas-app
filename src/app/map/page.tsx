@@ -84,7 +84,7 @@ const fallbackIdeas: MapJourney[] = [
     notes: "Atlas AI idea built for travelers who want a big-feeling tropical route.",
     remixCount: 214,
     shareCount: 91,
-    trendingTag: "🔥 Trending",
+    trendingTag: "✨ Atlas idea",
     videoUrl: "https://www.youtube.com/results?search_query=Costa+Rica+waterfalls+coast+travel+vlog",
     creatorName: "Atlas Clips",
     creatorHandle: "@atlasworld",
@@ -112,7 +112,7 @@ const fallbackIdeas: MapJourney[] = [
     notes: "Atlas AI idea for a fast, high-reward city weekend.",
     remixCount: 178,
     shareCount: 74,
-    trendingTag: "🍸 Weekend save",
+    trendingTag: "💡 Route idea",
     videoUrl: "https://www.tiktok.com/search?q=nyc%20food%20rooftop%20travel",
     creatorName: "Atlas City",
     creatorHandle: "@atlascity",
@@ -140,7 +140,7 @@ const fallbackIdeas: MapJourney[] = [
     notes: "Atlas AI idea for a cinematic, photo-forward Iceland trip.",
     remixCount: 326,
     shareCount: 144,
-    trendingTag: "📸 Most saved",
+    trendingTag: "📸 Photo route",
     videoUrl: "https://www.youtube.com/results?search_query=Iceland+photo+route+travel+vlog",
     creatorName: "Atlas Photo Route",
     creatorHandle: "@atlasroutes",
@@ -168,7 +168,7 @@ const fallbackIdeas: MapJourney[] = [
     notes: "Atlas AI idea for a local-first weekend with strong visual payoff.",
     remixCount: 119,
     shareCount: 51,
-    trendingTag: "🌿 Local favorite",
+    trendingTag: "🌿 Local idea",
     videoUrl: "https://www.instagram.com/explore/search/keyword/?q=hudson%20valley%20travel",
     creatorName: "Atlas Local",
     creatorHandle: "@atlaslocal",
@@ -196,7 +196,7 @@ const fallbackIdeas: MapJourney[] = [
     notes: "Atlas AI idea for a big-feeling family nature route.",
     remixCount: 241,
     shareCount: 88,
-    trendingTag: "🏔 Bucket list",
+    trendingTag: "🧭 Atlas pick",
     videoUrl: "https://www.youtube.com/results?search_query=Alaska+glacier+travel+vlog",
     creatorName: "Atlas Nature",
     creatorHandle: "@atlasnature",
@@ -224,7 +224,7 @@ const fallbackIdeas: MapJourney[] = [
     notes: "Atlas AI idea for a slower, premium, romantic itinerary.",
     remixCount: 286,
     shareCount: 103,
-    trendingTag: "💛 Couple favorite",
+    trendingTag: "💛 Couple route",
     videoUrl: "https://www.tiktok.com/search?q=italy%20romantic%20travel%20itinerary",
     creatorName: "Atlas Romance",
     creatorHandle: "@atlasromance",
@@ -333,7 +333,7 @@ function mapPublishedJourneyToMapCard(journey: any, index: number): MapJourney {
     notes: journey.notes?.trim() || journey.trip.vibeSummary,
     remixCount: 84 + index * 17,
     shareCount: 31 + index * 9,
-    trendingTag: index % 3 === 0 ? "🔥 Trending" : index % 3 === 1 ? "⭐ Most saved" : "📸 Photo route",
+    trendingTag: index % 3 === 0 ? "🌍 Published journey" : index % 3 === 1 ? "📸 Photo route" : "🧭 Atlas pick",
     videoUrl: (journey.trip as any)?.videoUrl || (journey.form as any)?.videoUrl || "",
     creatorName: (journey.trip as any)?.creatorName || "Atlas traveler",
     creatorHandle: (journey.trip as any)?.creatorHandle || "@atlasworld",
@@ -395,7 +395,7 @@ function getSocialProofForTrip(trip: MapJourney, index = 0) {
     return {
       remixCount: trip.remixCount || base,
       shareCount: trip.shareCount || Math.max(18, Math.floor(base * 0.42)),
-      trendingTag: trip.trendingTag || (index % 2 === 0 ? "🔥 Trending" : "⭐ Most saved"),
+      trendingTag: trip.trendingTag || (index % 2 === 0 ? "🌍 Published journey" : "📸 Photo route"),
     };
   }
 
@@ -563,13 +563,47 @@ function getTrendingScore(trip: MapJourney) {
 }
 
 function getLiveTrendLabel(trip: MapJourney) {
-  const score = getTrendingScore(trip);
+  if (trip.source === "published") {
+    return "🌍 Published journey";
+  }
 
-  if (score > 950) return "⚡ Blowing up";
-  if (score > 650) return "🔥 Trending now";
-  if (trip.photos > 0) return "📸 Photo route";
-  if (trip.source === "published") return "⭐ Getting saved";
-  return "✨ Fresh idea";
+  if (trip.photos > 0) {
+    return "📸 Photo route";
+  }
+
+  return "✨ Atlas idea";
+}
+
+
+function shuffleMapJourneys(items: MapJourney[]) {
+  return [...items].sort(() => Math.random() - 0.5);
+}
+
+function getRotatingFallbackIdeas() {
+  const pinPositions = [
+    { x: "18%", y: "52%" },
+    { x: "34%", y: "47%" },
+    { x: "51%", y: "44%" },
+    { x: "72%", y: "54%" },
+    { x: "27%", y: "72%" },
+    { x: "63%", y: "68%" },
+    { x: "84%", y: "40%" },
+    { x: "46%", y: "61%" },
+  ];
+
+  const rotated = shuffleMapJourneys(fallbackIdeas).map((journey, index) => {
+    const position = pinPositions[index % pinPositions.length];
+
+    return {
+      ...journey,
+      x: position.x,
+      y: position.y,
+      remixCount: Math.max(42, journey.remixCount + Math.floor(Math.random() * 18) - 8),
+      shareCount: Math.max(18, journey.shareCount + Math.floor(Math.random() * 12) - 5),
+    };
+  });
+
+  return rotated;
 }
 
 function useIsMobile(breakpoint = 1024) {
@@ -599,6 +633,7 @@ export default function MapPage() {
   const [copiedTripId, setCopiedTripId] = useState<string | null>(null);
   const [highlightedJourneyId, setHighlightedJourneyId] = useState<string | null>(null);
   const [watchTrip, setWatchTrip] = useState<MapJourney | null>(null);
+  const [rotatingFallbackIdeas] = useState(getRotatingFallbackIdeas);
 
   useEffect(() => {
     async function loadPublishedJourneys() {
@@ -629,8 +664,8 @@ export default function MapPage() {
 
   const allJourneys = useMemo(() => {
     const published = publishedSourceJourneys.map(mapPublishedJourneyToMapCard);
-    return published.length ? [...published, ...fallbackIdeas] : fallbackIdeas;
-  }, [publishedSourceJourneys]);
+    return published.length ? [...published, ...rotatingFallbackIdeas] : rotatingFallbackIdeas;
+  }, [publishedSourceJourneys, rotatingFallbackIdeas]);
 
   const journeys = useMemo(() => {
     if (activeFilter === "Published") {
@@ -654,7 +689,7 @@ export default function MapPage() {
     return allJourneys;
   }, [activeFilter, allJourneys]);
 
-  const featuredJourneys = useMemo(() => journeys.slice(0, 6), [journeys]);
+  const featuredJourneys = useMemo(() => shuffleMapJourneys(journeys).slice(0, 6), [journeys]);
 
   const activeJourney = useMemo(() => {
     const activeId = hoveredPinId || selectedId;
@@ -990,13 +1025,13 @@ export default function MapPage() {
 
           <div className="rounded-[24px] border border-white/10 bg-white/10 p-4 backdrop-blur">
             <p className="text-[11px] uppercase tracking-[0.28em] text-white/55">
-              Most magnetic
+              Featured idea
             </p>
             <p className="mt-2 text-2xl font-semibold text-white">
               {trendingJourneys[0]?.destination || "Atlas"}
             </p>
             <p className="mt-1 text-sm text-white/65">
-              Bucket-list routes rise to the top.
+              Fresh route ideas rotate into view.
             </p>
           </div>
         </div>
@@ -1226,7 +1261,7 @@ export default function MapPage() {
                 <div className="grid grid-cols-2 gap-3">
                   <div className="rounded-2xl border border-white/10 bg-white/5 p-3">
                     <p className="text-[10px] uppercase tracking-[0.2em] text-white/45">
-                      Built by others
+                      Remixes
                     </p>
                     <p className="mt-1 text-xl font-semibold text-white">
                       {activeJourney.remixCount}
@@ -1234,7 +1269,7 @@ export default function MapPage() {
                   </div>
                   <div className="rounded-2xl border border-white/10 bg-white/5 p-3">
                     <p className="text-[10px] uppercase tracking-[0.2em] text-white/45">
-                      Shared saves
+                      Shares
                     </p>
                     <p className="mt-1 text-xl font-semibold text-white">
                       {activeJourney.shareCount}
@@ -1396,15 +1431,15 @@ export default function MapPage() {
           <div className="mb-5 flex flex-wrap items-end justify-between gap-4">
             <div>
               <p className="text-[11px] uppercase tracking-[0.28em] text-[#d6b98c]">
-                Trending now
+                Atlas picks
               </p>
-              <h2 className="mt-2 text-2xl font-semibold">Trips getting saved fast</h2>
+              <h2 className="mt-2 text-2xl font-semibold">Fresh routes Atlas is surfacing</h2>
               <p className="mt-1 text-sm text-white/65">
-                A live-feeling ranking based on remixes, shares, photos, and bucket-list energy.
+                AI route ideas and published journeys, rotated on each fresh visit.
               </p>
             </div>
             <p className="rounded-full border border-white/10 bg-white/10 px-4 py-2 text-xs font-semibold uppercase tracking-[0.18em] text-white/75">
-              Map ↔ Feed synced
+              Atlas discovery layer
             </p>
           </div>
 
@@ -1460,7 +1495,7 @@ export default function MapPage() {
             <div>
               <h2 className="text-2xl font-semibold">Bucket-list journeys</h2>
               <p className="mt-1 text-sm text-slate-500">
-                Trips that make people say: save this, send this, or build my version.
+                Route ideas and published journeys built to save, send, or remix.
               </p>
             </div>
 
@@ -1641,7 +1676,7 @@ export default function MapPage() {
                       onClick={() => handleOpenSocial(getTripVideoUrl(trip))}
                       className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-900"
                     >
-                      Open Creator
+                      Open Profile
                     </button>
                   </div>
                 </div>
@@ -1657,7 +1692,7 @@ export default function MapPage() {
                 Viral layer
               </p>
               <h3 className="mt-2 text-2xl font-semibold text-white">
-                Trips people save, copy, post, and come back to build
+                Trips people can save, copy, post, and come back to build
               </h3>
               <p className="mt-3 max-w-3xl text-sm leading-7 text-white/75">
                 The map is now a discovery loop: see a photo or short trip video, open the journey,
@@ -1716,7 +1751,7 @@ export default function MapPage() {
             Product direction
           </p>
           <h3 className="mt-2 text-xl font-semibold text-white">
-            The viral loop starts here
+            The remix loop starts here
           </h3>
           <p className="mt-3 max-w-3xl text-sm leading-7 text-white/75">
             Atlas World should make people discover a trip, save it to a bucket list, remix the
@@ -1987,7 +2022,7 @@ export default function MapPage() {
             <div className="grid gap-4 border-t border-white/10 bg-[#0d1728] p-5 sm:grid-cols-[1fr_0.85fr]">
               <div>
                 <p className="text-[11px] uppercase tracking-[0.24em] text-white/45">
-                  Creator path
+                  Profile path
                 </p>
                 <button
                   type="button"
