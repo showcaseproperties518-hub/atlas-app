@@ -900,7 +900,7 @@ export default function BuildPage() {
                 <label className="text-[11px] uppercase tracking-[0.30em] text-neutral-500">
                   Energy level
                 </label>
-                <div className="mt-3 grid grid-cols-3 gap-2">
+                <div className="mt-3 flex flex-wrap gap-2">
                   {energyOptions.map((option) => {
                     const active = form.energyLevel === option;
                     return (
@@ -908,7 +908,7 @@ export default function BuildPage() {
                         key={option}
                         type="button"
                         onClick={() => updateField("energyLevel", option)}
-                        className={`rounded-2xl px-3 py-3 text-sm transition hover:-translate-y-0.5 ${
+                        className={`rounded-full px-4 py-2.5 text-sm transition hover:-translate-y-0.5 ${
                           active
                             ? "bg-neutral-900 text-white shadow-[0_10px_24px_rgba(0,0,0,0.18)]"
                             : "border border-neutral-200/90 bg-white/85 text-neutral-700"
@@ -975,7 +975,7 @@ export default function BuildPage() {
                 <label className="text-[11px] uppercase tracking-[0.30em] text-neutral-500">
                   Planner or spontaneous?
                 </label>
-                <div className="mt-3 grid grid-cols-3 gap-2">
+                <div className="mt-3 flex flex-wrap gap-2">
                   {paceOptions.map((option) => {
                     const active = form.travelPace === option;
                     return (
@@ -983,7 +983,7 @@ export default function BuildPage() {
                         key={option}
                         type="button"
                         onClick={() => updateField("travelPace", option)}
-                        className={`rounded-2xl px-3 py-3 text-sm transition hover:-translate-y-0.5 ${
+                        className={`rounded-full px-4 py-2.5 text-sm transition hover:-translate-y-0.5 ${
                           active
                             ? "bg-neutral-900 text-white shadow-[0_10px_24px_rgba(0,0,0,0.18)]"
                             : "border border-neutral-200/90 bg-white/85 text-neutral-700"

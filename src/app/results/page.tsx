@@ -1532,18 +1532,7 @@ export default function ResultsPage() {
       url,
     });
 
-    const outboundUrl = buildOutboundUrl({
-      category,
-      provider,
-      label,
-      targetUrl: url,
-      form,
-      flightOrigin: flightOriginDisplay,
-      stayType: stayTypeDisplay,
-      transportType: transportTypeDisplay,
-    });
-
-    window.open(outboundUrl, "_blank");
+    window.open(url, "_blank", "noopener,noreferrer");
   }
 
   if (!isReady) {
