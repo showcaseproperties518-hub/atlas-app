@@ -30,6 +30,54 @@ type AtlasJourneyCard = {
   originalJourney: AtlasStoredJourney;
 };
 
+type AtlasProfile = {
+  name: string;
+  username: string;
+  bio: string;
+  avatar: string;
+};
+
+
+const ATLAS_PROFILE_STORAGE_KEY = "atlas_profile";
+
+const defaultAtlasProfile: AtlasProfile = {
+  name: "Your Name",
+  username: "yourname",
+  bio: "Building journeys, capturing moments, and mapping the world through Atlas.",
+  avatar:
+    "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=600&q=80",
+};
+
+function sanitizeUsername(value: string) {
+  return (
+    value
+      .toLowerCase()
+      .replace(/^@/, "")
+      .replace(/[^a-z0-9]+/g, "")
+      .trim() || "yourname"
+  );
+}
+
+function getInitialProfile() {
+  if (typeof window === "undefined") return defaultAtlasProfile;
+
+  try {
+    const stored = window.localStorage.getItem(ATLAS_PROFILE_STORAGE_KEY);
+    if (!stored) return defaultAtlasProfile;
+
+    const parsed = JSON.parse(stored) as Partial<AtlasProfile>;
+
+    return {
+      name: parsed.name || defaultAtlasProfile.name,
+      username: sanitizeUsername(parsed.username || defaultAtlasProfile.username),
+      bio: parsed.bio || defaultAtlasProfile.bio,
+      avatar: parsed.avatar || defaultAtlasProfile.avatar,
+    };
+  } catch {
+    return defaultAtlasProfile;
+  }
+}
+
 function mapJourneyToCard(
   journey: AtlasStoredJourney,
   fallbackPublished = false
@@ -56,14 +104,21 @@ function mapJourneyToCard(
 
 export default function AtlasPage() {
   const router = useRouter();
+  const [profile, setProfile] = useState<AtlasProfile>(defaultAtlasProfile);
+  const [draftProfile, setDraftProfile] = useState<AtlasProfile>(defaultAtlasProfile);
+  const [isEditingProfile, setIsEditingProfile] = useState(false);
+  const [profileMessage, setProfileMessage] = useState("");
   const [savedJourneys, setSavedJourneys] = useState<AtlasStoredJourney[]>([]);
   const [publishedJourneys, setPublishedJourneys] = useState<AtlasStoredJourney[]>([]);
   const [isReady, setIsReady] = useState(false);
 
   useEffect(() => {
+    const loadedProfile = getInitialProfile();
     const saved = getSavedJourneys();
     const published = getPublishedJourneys();
 
+    setProfile(loadedProfile);
+    setDraftProfile(loadedProfile);
     setSavedJourneys(saved);
     setPublishedJourneys(published);
     setIsReady(true);
@@ -108,6 +163,30 @@ export default function AtlasPage() {
 
   const totalTripsCount = allJourneyCards.length;
   const publishedTripsCount = publishedCards.length;
+
+  function handleOpenEditProfile() {
+    setDraftProfile(profile);
+    setIsEditingProfile(true);
+    setProfileMessage("");
+  }
+
+  function handleSaveProfile() {
+    const nextProfile: AtlasProfile = {
+      name: draftProfile.name.trim() || "Atlas Creator",
+      username: sanitizeUsername(draftProfile.username),
+      bio:
+        draftProfile.bio.trim() ||
+        "Building journeys, capturing moments, and mapping the world through Atlas.",
+      avatar: draftProfile.avatar.trim() || defaultAtlasProfile.avatar,
+    };
+
+    setProfile(nextProfile);
+    setDraftProfile(nextProfile);
+    window.localStorage.setItem(ATLAS_PROFILE_STORAGE_KEY, JSON.stringify(nextProfile));
+    setIsEditingProfile(false);
+    setProfileMessage("Profile saved");
+    window.setTimeout(() => setProfileMessage(""), 2200);
+  }
 
   function handleBuildMyVersion(journey: AtlasStoredJourney) {
     const prefill = {
@@ -215,25 +294,45 @@ export default function AtlasPage() {
             <div className="flex flex-col gap-5 sm:flex-row sm:items-center">
               <div className="h-24 w-24 overflow-hidden rounded-full shadow-md ring-4 ring-white/70">
                 <img
-                  src="https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=600&q=80"
-                  alt="Profile"
+                  src={profile.avatar}
+                  alt={`${profile.name} profile`}
                   className="h-full w-full object-cover"
                 />
               </div>
 
               <div>
                 <div className="flex flex-wrap items-center gap-3">
-                  <h2 className="text-3xl font-bold">Alex Johnson</h2>
+                  <h2 className="text-3xl font-bold">{profile.name}</h2>
                   <span className="rounded-full bg-[#d6b98c] px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-slate-950">
                     Atlas Creator
                   </span>
                 </div>
-                <p className="mt-1 text-slate-500">@alex · Posted by you</p>
+                <p className="mt-1 text-slate-500">@{profile.username} · Posted by you</p>
 
-                <p className="mt-3 max-w-2xl text-slate-600">
-                  Exploring hidden gems, local flavors, and unforgettable places.
-                  Saving journeys, refining them, and sharing the best ones with Atlas.
-                </p>
+                <p className="mt-3 max-w-2xl text-slate-600">{profile.bio}</p>
+
+                <div className="mt-4 flex flex-wrap gap-3">
+                  <button
+                    type="button"
+                    onClick={handleOpenEditProfile}
+                    className="rounded-full border border-slate-200 bg-white px-5 py-2 text-sm font-semibold text-slate-900 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
+                  >
+                    Edit Profile
+                  </button>
+
+                  <Link
+                    href={`/user/${profile.username}`}
+                    className="rounded-full bg-slate-900 px-5 py-2 text-sm font-semibold text-white shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
+                  >
+                    View Public Profile
+                  </Link>
+
+                  {profileMessage ? (
+                    <span className="rounded-full bg-emerald-50 px-5 py-2 text-sm font-semibold text-emerald-700">
+                      {profileMessage}
+                    </span>
+                  ) : null}
+                </div>
               </div>
             </div>
 
@@ -587,6 +686,126 @@ export default function AtlasPage() {
           </>
         )}
       </div>
+
+      {isEditingProfile ? (
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-slate-950/50 px-4 pb-4 backdrop-blur-sm sm:items-center sm:pb-0">
+          <div className="w-full max-w-xl overflow-hidden rounded-[32px] border border-white/70 bg-white shadow-[0_30px_120px_rgba(15,23,42,0.35)]">
+            <div className="border-b border-slate-100 bg-[#f8f1e6] px-6 py-5">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.3em] text-[#8a6631]">
+                Atlas Profile
+              </p>
+              <h2 className="mt-2 text-2xl font-bold tracking-tight text-slate-950">
+                Edit your profile
+              </h2>
+              <p className="mt-2 text-sm leading-6 text-slate-600">
+                This saves on this browser for tonight. Later we can sync it to Supabase accounts.
+              </p>
+            </div>
+
+            <div className="space-y-4 p-6">
+              <label className="block">
+                <span className="text-sm font-semibold text-slate-700">Name</span>
+                <input
+                  value={draftProfile.name}
+                  onChange={(e) =>
+                    setDraftProfile((current) => ({
+                      ...current,
+                      name: e.target.value,
+                    }))
+                  }
+                  className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-[#d6b98c] focus:ring-4 focus:ring-[#d6b98c]/15"
+                  placeholder="Dan McCann"
+                />
+              </label>
+
+              <label className="block">
+                <span className="text-sm font-semibold text-slate-700">Username</span>
+                <div className="mt-2 flex overflow-hidden rounded-2xl border border-slate-200 bg-white focus-within:border-[#d6b98c] focus-within:ring-4 focus-within:ring-[#d6b98c]/15">
+                  <span className="flex items-center bg-slate-50 px-4 text-sm font-semibold text-slate-500">
+                    @
+                  </span>
+                  <input
+                    value={draftProfile.username}
+                    onChange={(e) =>
+                      setDraftProfile((current) => ({
+                        ...current,
+                        username: sanitizeUsername(e.target.value),
+                      }))
+                    }
+                    className="w-full px-4 py-3 text-sm outline-none"
+                    placeholder="dansworld"
+                  />
+                </div>
+              </label>
+
+              <label className="block">
+                <span className="text-sm font-semibold text-slate-700">Bio</span>
+                <textarea
+                  value={draftProfile.bio}
+                  onChange={(e) =>
+                    setDraftProfile((current) => ({
+                      ...current,
+                      bio: e.target.value,
+                    }))
+                  }
+                  rows={4}
+                  className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm leading-6 outline-none transition focus:border-[#d6b98c] focus:ring-4 focus:ring-[#d6b98c]/15"
+                  placeholder="Real trips. Real builds. Mapping the world one journey at a time."
+                />
+              </label>
+
+              <label className="block">
+                <span className="text-sm font-semibold text-slate-700">Avatar image URL</span>
+                <input
+                  value={draftProfile.avatar}
+                  onChange={(e) =>
+                    setDraftProfile((current) => ({
+                      ...current,
+                      avatar: e.target.value,
+                    }))
+                  }
+                  className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-[#d6b98c] focus:ring-4 focus:ring-[#d6b98c]/15"
+                  placeholder="https://..."
+                />
+              </label>
+
+              <div className="flex items-center gap-3 rounded-2xl bg-slate-50 p-3">
+                <img
+                  src={draftProfile.avatar || defaultAtlasProfile.avatar}
+                  alt="Profile preview"
+                  className="h-14 w-14 rounded-full object-cover"
+                />
+                <div>
+                  <p className="font-semibold text-slate-950">
+                    {draftProfile.name || "Atlas Creator"}
+                  </p>
+                  <p className="text-sm text-slate-500">
+                    @{sanitizeUsername(draftProfile.username)}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3 border-t border-slate-100 bg-slate-50 px-6 py-5">
+              <button
+                type="button"
+                onClick={() => setIsEditingProfile(false)}
+                className="rounded-2xl border border-slate-200 bg-white px-5 py-3 text-sm font-semibold text-slate-900"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleSaveProfile}
+                className="rounded-2xl bg-slate-900 px-5 py-3 text-sm font-semibold text-white"
+              >
+                Save Profile
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
     </main>
   );
 }
