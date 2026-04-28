@@ -31,6 +31,10 @@ export type AtlasStoredJourney = {
   startDate?: string;
   endDate?: string;
   isPastJourney?: boolean;
+  isPublished?: boolean;
+  creatorName?: string;
+  creatorUsername?: string;
+  creatorAvatar?: string;
 };
 
 function isBrowser() {
@@ -96,6 +100,10 @@ export function saveJourney(journey: AtlasStoredJourney) {
     startDate: journey.startDate ?? existingMatch?.startDate,
     endDate: journey.endDate ?? existingMatch?.endDate,
     isPastJourney: journey.isPastJourney ?? existingMatch?.isPastJourney ?? false,
+    isPublished: journey.isPublished ?? existingMatch?.isPublished ?? false,
+    creatorName: journey.creatorName ?? existingMatch?.creatorName,
+    creatorUsername: journey.creatorUsername ?? existingMatch?.creatorUsername,
+    creatorAvatar: journey.creatorAvatar ?? existingMatch?.creatorAvatar,
   };
 
   const next = [nextJourney, ...existing.filter((item) => item.id !== journey.id)];
@@ -118,6 +126,10 @@ export function publishJourney(journey: AtlasStoredJourney) {
     startDate: journey.startDate ?? existingMatch?.startDate,
     endDate: journey.endDate ?? existingMatch?.endDate,
     isPastJourney: journey.isPastJourney ?? existingMatch?.isPastJourney ?? false,
+    isPublished: true,
+    creatorName: journey.creatorName ?? existingMatch?.creatorName,
+    creatorUsername: journey.creatorUsername ?? existingMatch?.creatorUsername,
+    creatorAvatar: journey.creatorAvatar ?? existingMatch?.creatorAvatar,
   };
 
   const next = [
@@ -141,6 +153,10 @@ export function upsertSavedJourneyFromTrip(args: {
   startDate?: string;
   endDate?: string;
   isPastJourney?: boolean;
+  isPublished?: boolean;
+  creatorName?: string;
+  creatorUsername?: string;
+  creatorAvatar?: string;
 }) {
   const now = new Date().toISOString();
   const id = args.id ?? createJourneyId(args.destination);
@@ -162,6 +178,10 @@ export function upsertSavedJourneyFromTrip(args: {
     startDate: args.startDate ?? existing?.startDate,
     endDate: args.endDate ?? existing?.endDate,
     isPastJourney: args.isPastJourney ?? existing?.isPastJourney ?? false,
+    isPublished: args.isPublished ?? existing?.isPublished ?? false,
+    creatorName: args.creatorName ?? existing?.creatorName,
+    creatorUsername: args.creatorUsername ?? existing?.creatorUsername,
+    creatorAvatar: args.creatorAvatar ?? existing?.creatorAvatar,
   };
 
   saveJourney(journey);
@@ -169,10 +189,52 @@ export function upsertSavedJourneyFromTrip(args: {
 }
 
 export function publishExistingJourney(journey: AtlasStoredJourney) {
-  publishJourney(journey);
-  return {
+  const publishedJourney: AtlasStoredJourney = {
     ...journey,
     source: "published" as const,
+    isPublished: true,
+    updatedAt: new Date().toISOString(),
+  };
+
+  publishJourney(publishedJourney);
+
+  const saved = getSavedJourneys();
+  const nextSaved = saved.map((item) =>
+    item.id === publishedJourney.id
+      ? {
+          ...item,
+          isPublished: true,
+          updatedAt: publishedJourney.updatedAt,
+        }
+      : item
+  );
+
+  safeWrite(ATLAS_SAVED_JOURNEYS_KEY, nextSaved);
+
+  return publishedJourney;
+}
+
+export function unpublishExistingJourney(journey: AtlasStoredJourney) {
+  const published = getPublishedJourneys().filter((item) => item.id !== journey.id);
+  safeWrite(ATLAS_PUBLISHED_JOURNEYS_KEY, published);
+
+  const saved = getSavedJourneys();
+  const nextSaved = saved.map((item) =>
+    item.id === journey.id
+      ? {
+          ...item,
+          isPublished: false,
+          updatedAt: new Date().toISOString(),
+        }
+      : item
+  );
+
+  safeWrite(ATLAS_SAVED_JOURNEYS_KEY, nextSaved);
+
+  return {
+    ...journey,
+    source: "saved" as const,
+    isPublished: false,
     updatedAt: new Date().toISOString(),
   };
 }

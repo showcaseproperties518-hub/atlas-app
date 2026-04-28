@@ -29,7 +29,10 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const journey = await createJourneyInDb(body);
+    const journey = await createJourneyInDb({
+      ...body,
+      is_published: Boolean(body.is_published),
+    });
 
     return NextResponse.json({ journey });
   } catch (error) {

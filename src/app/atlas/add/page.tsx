@@ -11,11 +11,63 @@ import {
 import {
   AtlasJourneyPhoto,
   createJourneyPhotoId,
+  publishExistingJourney,
   upsertSavedJourneyFromTrip,
 } from "@/app/lib/atlas-journeys";
 
 const fallbackCoverImage =
   "https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?auto=format&fit=crop&w=1800&q=80";
+
+const MAX_PAST_JOURNEY_PHOTOS = 20;
+
+const ATLAS_PROFILE_STORAGE_KEY = "atlas_profile";
+
+type AtlasProfile = {
+  name: string;
+  username: string;
+  bio: string;
+  avatar: string;
+};
+
+const defaultAtlasProfile: AtlasProfile = {
+  name: "Atlas Creator",
+  username: "atlascreator",
+  bio: "Building journeys, capturing moments, and mapping the world through Atlas.",
+  avatar:
+    "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=600&q=80",
+};
+
+function sanitizeUsername(value?: string) {
+  return (
+    (value || "")
+      .toLowerCase()
+      .replace(/^@/, "")
+      .replace(/[^a-z0-9]+/g, "")
+      .trim() || "atlascreator"
+  );
+}
+
+function getStoredAtlasProfile() {
+  if (typeof window === "undefined") return defaultAtlasProfile;
+
+  try {
+    const stored = window.localStorage.getItem(ATLAS_PROFILE_STORAGE_KEY);
+    if (!stored) return defaultAtlasProfile;
+
+    const parsed = JSON.parse(stored) as Partial<AtlasProfile>;
+
+    return {
+      name: parsed.name || defaultAtlasProfile.name,
+      username: sanitizeUsername(parsed.username || defaultAtlasProfile.username),
+      bio: parsed.bio || defaultAtlasProfile.bio,
+      avatar: parsed.avatar || defaultAtlasProfile.avatar,
+    };
+  } catch {
+    return defaultAtlasProfile;
+  }
+}
+
+
 
 const travelerOptions = [
   "Solo",
@@ -79,21 +131,56 @@ function buildPastJourneyForm(args: {
   };
 }
 
-function readFileAsDataUrl(file: File) {
+function compressImageToDataUrl(file: File) {
   return new Promise<string>((resolve, reject) => {
     const reader = new FileReader();
+    const image = new Image();
 
     reader.onload = () => {
-      if (typeof reader.result === "string") {
-        resolve(reader.result);
+      if (typeof reader.result !== "string") {
+        reject(new Error("Could not read file"));
         return;
       }
-      reject(new Error("Could not read file"));
+
+      image.src = reader.result;
     };
 
     reader.onerror = () => reject(new Error("Could not read file"));
+
+    image.onload = () => {
+      const canvas = document.createElement("canvas");
+      const maxDimension = 900;
+      const scale = Math.min(
+        1,
+        maxDimension / Math.max(image.width, image.height)
+      );
+
+      canvas.width = Math.max(1, Math.round(image.width * scale));
+      canvas.height = Math.max(1, Math.round(image.height * scale));
+
+      const ctx = canvas.getContext("2d");
+
+      if (!ctx) {
+        reject(new Error("Could not compress image"));
+        return;
+      }
+
+      ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
+
+      resolve(canvas.toDataURL("image/jpeg", 0.58));
+    };
+
+    image.onerror = () => reject(new Error("Could not load image"));
     reader.readAsDataURL(file);
   });
+}
+
+function getApproxStorageSizeMb(value: unknown) {
+  try {
+    return new Blob([JSON.stringify(value)]).size / 1024 / 1024;
+  } catch {
+    return 0;
+  }
 }
 
 export default function AddPastJourneyPage() {
@@ -107,12 +194,19 @@ export default function AddPastJourneyPage() {
     useState<(typeof tripStyleOptions)[number]>("Adventure");
   const [notes, setNotes] = useState("");
   const [photos, setPhotos] = useState<AtlasJourneyPhoto[]>([]);
+  const [postToAtlasWorld, setPostToAtlasWorld] = useState(true);
   const [isUploading, setIsUploading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [message, setMessage] = useState("");
 
   const canSave = useMemo(() => {
-    return destination.trim().length > 0 && photos.length > 0 && !isUploading && !isSaving;
+    return (
+      destination.trim().length > 0 &&
+      photos.length > 0 &&
+      photos.length <= MAX_PAST_JOURNEY_PHOTOS &&
+      !isUploading &&
+      !isSaving
+    );
   }, [destination, photos.length, isSaving, isUploading]);
 
   const dateSummary = useMemo(() => {
@@ -129,9 +223,18 @@ export default function AddPastJourneyPage() {
     setMessage("");
 
     try {
+      const remainingSlots = Math.max(0, MAX_PAST_JOURNEY_PHOTOS - photos.length);
+
+      if (remainingSlots === 0) {
+        setMessage(`You can add up to ${MAX_PAST_JOURNEY_PHOTOS} photos per past journey.`);
+        return;
+      }
+
+      const filesToUpload = files.slice(0, remainingSlots);
+
       const nextPhotos = await Promise.all(
-        files.map(async (file) => {
-          const url = await readFileAsDataUrl(file);
+        filesToUpload.map(async (file) => {
+          const url = await compressImageToDataUrl(file);
 
           return {
             id: createJourneyPhotoId(),
@@ -143,8 +246,18 @@ export default function AddPastJourneyPage() {
       );
 
       setPhotos((prev) => [...prev, ...nextPhotos]);
-    } catch {
-      setMessage("Could not upload one or more photos.");
+
+      if (files.length > remainingSlots) {
+        setMessage(
+          `Added ${filesToUpload.length} photos. Atlas supports up to ${MAX_PAST_JOURNEY_PHOTOS} photos per past journey for now.`
+        );
+      } else {
+        setMessage(`${filesToUpload.length} photo${filesToUpload.length === 1 ? "" : "s"} added and compressed.`);
+        window.setTimeout(() => setMessage(""), 2200);
+      }
+    } catch (error) {
+      console.error("Photo upload failed", error);
+      setMessage("Could not upload one or more photos. Try fewer photos or smaller images.");
     } finally {
       setIsUploading(false);
       e.target.value = "";
@@ -161,11 +274,28 @@ export default function AddPastJourneyPage() {
     setPhotos((prev) => prev.filter((photo) => photo.id !== photoId));
   }
 
-  function handleSavePastJourney() {
-    if (!canSave) return;
+  async function handleSavePastJourney() {
+    if (!canSave) {
+      if (!destination.trim()) {
+        setMessage("Add the destination first.");
+        return;
+      }
+
+      if (photos.length === 0) {
+        setMessage("Add at least one photo before saving.");
+        return;
+      }
+
+      if (photos.length > MAX_PAST_JOURNEY_PHOTOS) {
+        setMessage(`Remove ${photos.length - MAX_PAST_JOURNEY_PHOTOS} photo${photos.length - MAX_PAST_JOURNEY_PHOTOS === 1 ? "" : "s"} first. Atlas supports up to ${MAX_PAST_JOURNEY_PHOTOS} photos per past journey right now.`);
+        return;
+      }
+
+      return;
+    }
 
     setIsSaving(true);
-    setMessage("");
+    setMessage("Saving your trip...");
 
     try {
       const form = buildPastJourneyForm({
@@ -188,7 +318,9 @@ export default function AddPastJourneyPage() {
             : "This past journey was added from real memories and photos so it can live on your Atlas map, stay visual, and be publishable later.",
       };
 
-      const journey = upsertSavedJourneyFromTrip({
+      const creatorProfile = getStoredAtlasProfile();
+
+      const payloadPreview = {
         destination: destination.trim(),
         coverImage: photos[0]?.url || fallbackCoverImage,
         form,
@@ -198,10 +330,86 @@ export default function AddPastJourneyPage() {
         startDate,
         endDate,
         isPastJourney: true,
-      });
+        isPublished: postToAtlasWorld,
+        creatorName: creatorProfile.name,
+        creatorUsername: creatorProfile.username,
+        creatorAvatar: creatorProfile.avatar,
+      };
 
+      const approxSizeMb = getApproxStorageSizeMb(payloadPreview);
+
+      if (approxSizeMb > 4.5) {
+        setMessage(
+          "This trip is still too large for browser storage. Remove a few photos or use smaller images. Cloud photo storage is the next upgrade."
+        );
+        setIsSaving(false);
+        return;
+      }
+
+      const journey = upsertSavedJourneyFromTrip(payloadPreview);
+
+      if (postToAtlasWorld) {
+        publishExistingJourney(journey);
+
+        try {
+          const publishResponse = await fetch("/api/journeys", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              title: trip.title,
+              subtitle: trip.subtitle,
+              destination: destination.trim(),
+              vibe_summary: trip.vibeSummary,
+              cover_image: photos[0]?.url || fallbackCoverImage,
+              start_date: startDate,
+              end_date: endDate,
+              duration: form.duration,
+              budget: form.budget,
+              travelers: form.travelers,
+              trip_style: form.tripStyle,
+              energy_level: form.energyLevel,
+              stay_type: form.stayType,
+              transport_type: form.transportType,
+              flight_origin: form.flightOrigin,
+              is_published: true,
+              source_journey_id: journey.id,
+              creator_name: creatorProfile.name,
+              creator_username: creatorProfile.username,
+              creator_avatar: creatorProfile.avatar,
+              days: trip.days.map((day) => ({
+                day: day.day,
+                title: day.title,
+                summary: day.summary,
+                morning: day.morning,
+                afternoon: day.afternoon,
+                evening: day.evening,
+              })),
+            }),
+          });
+
+          if (!publishResponse.ok) {
+            console.error("Public publish failed", await publishResponse.text());
+            setMessage(
+              "Saved locally, but public posting had an issue. Check Supabase/Vercel logs."
+            );
+          }
+        } catch (error) {
+          console.error("Public publish failed", error);
+          setMessage(
+            "Saved locally, but public posting had an issue. Check Supabase/Vercel logs."
+          );
+        }
+      }
+
+      setMessage(postToAtlasWorld ? "Saved and posted to Atlas World. Opening your trip page..." : "Saved privately. Opening your trip page...");
       router.push(`/atlas/${journey.id}`);
-    } finally {
+    } catch (error) {
+      console.error("Save past journey failed", error);
+      setMessage(
+        "Could not save this trip. Try removing a few photos or uploading smaller images."
+      );
       setIsSaving(false);
     }
   }
@@ -259,7 +467,7 @@ export default function AddPastJourneyPage() {
               Seed your Atlas with real trips people can actually explore
             </h2>
             <p className="mt-3 text-sm leading-6 text-neutral-700 md:text-base">
-              Start with where you went. Add the photos that define the trip. Save it into Atlas, then use the trip page as the link you post, send, and build from.
+              Start with where you went. Add up to 20 photos that define the trip. Save it into Atlas, then use the trip page as the link you post, send, and build from.
             </p>
           </div>
 
@@ -296,7 +504,7 @@ export default function AddPastJourneyPage() {
                       Upload the photos that make people stop
                     </h2>
                     <p className="mt-3 text-sm leading-6 text-neutral-700">
-                      The first photo becomes the cover. The rest make the journey feel real, shareable, and worth copying.
+                      The first photo becomes the cover. Atlas compresses uploads so you can save up to 20 photos in this version.
                     </p>
                   </div>
                 </div>
@@ -310,7 +518,7 @@ export default function AddPastJourneyPage() {
                       Tap to drop in the trip
                     </span>
                     <span className="mt-2 max-w-md text-sm leading-6 text-neutral-600">
-                      Add a handful of photos from your camera roll. This is the fastest way to turn a memory into something people can explore.
+                      Add up to 20 photos from your camera roll. This is the fastest way to turn a memory into something people can explore.
                     </span>
                     <input
                       type="file"
@@ -322,9 +530,19 @@ export default function AddPastJourneyPage() {
                   </label>
                 </div>
 
+                <div className="mt-4 rounded-[20px] border border-neutral-200 bg-white/90 px-4 py-3 text-sm text-neutral-700">
+                  {photos.length}/{MAX_PAST_JOURNEY_PHOTOS} photos added. Uploads are compressed before saving so this works tonight without cloud storage.
+                </div>
+
+                {photos.length > MAX_PAST_JOURNEY_PHOTOS ? (
+                  <div className="mt-4 rounded-[20px] border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                    Remove {photos.length - MAX_PAST_JOURNEY_PHOTOS} photo{photos.length - MAX_PAST_JOURNEY_PHOTOS === 1 ? "" : "s"} before saving.
+                  </div>
+                ) : null}
+
                 {isUploading ? (
                   <div className="mt-4 rounded-[20px] border border-neutral-200 bg-white/90 px-4 py-3 text-sm text-neutral-700">
-                    Uploading photos...
+                    Compressing and uploading photos...
                   </div>
                 ) : null}
 
@@ -374,7 +592,7 @@ export default function AddPastJourneyPage() {
                 ) : (
                   <div className="mt-5 rounded-[24px] border border-dashed border-neutral-300 bg-[#faf5ef] px-4 py-5">
                     <p className="text-sm leading-6 text-neutral-600">
-                      No photos yet. Add 3–8 strong photos and this starts feeling like a real trip immediately.
+                      No photos yet. Add 1–20 strong photos and this starts feeling like a real trip immediately.
                     </p>
                   </div>
                 )}
@@ -586,6 +804,43 @@ export default function AddPastJourneyPage() {
                   </p>
                 </div>
 
+                <div className="mt-5 rounded-[22px] border border-[#d6b98c]/45 bg-[#fff8ed] p-4">
+                  <div className="flex items-start justify-between gap-4">
+                    <div>
+                      <p className="text-[11px] uppercase tracking-[0.28em] text-neutral-500">
+                        Publish setting
+                      </p>
+                      <h4 className="mt-1 text-base font-semibold text-neutral-950">
+                        Post to Atlas World
+                      </h4>
+                      <p className="mt-2 text-sm leading-6 text-neutral-700">
+                        When this is on, the trip is saved to My Atlas and also posted publicly so it can appear on the map and feed.
+                      </p>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => setPostToAtlasWorld((current) => !current)}
+                      className={`relative mt-1 h-8 w-14 rounded-full transition ${
+                        postToAtlasWorld ? "bg-neutral-950" : "bg-neutral-300"
+                      }`}
+                      aria-pressed={postToAtlasWorld}
+                    >
+                      <span
+                        className={`absolute top-1 h-6 w-6 rounded-full bg-white shadow transition ${
+                          postToAtlasWorld ? "left-7" : "left-1"
+                        }`}
+                      />
+                    </button>
+                  </div>
+
+                  <div className="mt-4 rounded-2xl bg-white/75 px-4 py-3 text-sm font-medium text-neutral-700">
+                    {postToAtlasWorld
+                      ? "Public: this journey can show on Atlas World after saving."
+                      : "Private: this journey stays in My Atlas only."}
+                  </div>
+                </div>
+
                 {message ? (
                   <div className="mt-4 rounded-2xl border border-neutral-200 bg-white/90 px-4 py-3 text-sm text-neutral-700">
                     {message}
@@ -602,7 +857,7 @@ export default function AddPastJourneyPage() {
                       : "cursor-not-allowed bg-neutral-200 text-neutral-500"
                   }`}
                 >
-                  {isSaving ? "Saving Journey..." : "Save & View My Trip"}
+                  {isSaving ? "Saving Journey..." : postToAtlasWorld ? "Save, Post & View Trip" : "Save Privately & View Trip"}
                 </button>
 
                 <Link
@@ -665,7 +920,7 @@ export default function AddPastJourneyPage() {
                 : "cursor-not-allowed bg-neutral-200 text-neutral-500"
             }`}
           >
-            {isSaving ? "Saving Journey..." : "Save & View My Trip"}
+            {isSaving ? "Saving Journey..." : postToAtlasWorld ? "Save, Post & View Trip" : "Save Privately & View Trip"}
           </button>
         </div>
       </div>
