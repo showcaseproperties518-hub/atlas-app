@@ -49,6 +49,21 @@ function getCreatorHref(trip: FeedTripCard) {
   return `/user/${getUsernameSlug(trip.username || trip.user || "atlastraveler")}`;
 }
 
+
+function shuffleFeedTrips<T>(items: T[]) {
+  return [...items].sort(() => Math.random() - 0.5);
+}
+
+function bumpTripLikes(trip: FeedTripCard, index: number): FeedTripCard {
+  if (trip.source === "published") return trip;
+
+  return {
+    ...trip,
+    id: `${trip.id}-${Date.now()}-${index}`,
+    likes: Math.max(111, trip.likes + Math.floor(Math.random() * 240) - 80),
+  };
+}
+
 const aiIdeas: FeedTripCard[] = [
   {
     id: "ai-hudson-valley-weekend",
@@ -108,6 +123,110 @@ const aiIdeas: FeedTripCard[] = [
     blend: "Top spots",
     energy: "Balanced",
     notes: "Waterfalls, black sand, glacier views, hot springs, and a route that feels like a movie.",
+    source: "ai",
+  },
+];
+
+
+const extraAiIdeas: FeedTripCard[] = [
+  {
+    id: "ai-arizona-desert-route",
+    title: "Arizona Desert Route",
+    location: "Arizona",
+    image:
+      "https://images.unsplash.com/photo-1509316785289-025f5b846b35?auto=format&fit=crop&w=1600&q=80",
+    tags: ["AI Idea", "Desert", "Scenic"],
+    likes: 1288,
+    user: "Atlas AI",
+    username: "atlasai",
+    destination: "Arizona",
+    length: "5 days",
+    budget: "$1500-$3000",
+    traveler: "Couple",
+    vibe: "Red rocks, desert sunsets, scenic drives, and warm-weather adventure.",
+    blend: "Mix of both",
+    energy: "Balanced",
+    notes: "A cinematic Southwest route with desert views, food stops, and easy remix potential.",
+    source: "ai",
+  },
+  {
+    id: "ai-california-coast-drive",
+    title: "California Coast Drive",
+    location: "California Coast",
+    image:
+      "https://images.unsplash.com/photo-1500534314209-a25ddb2bd429?auto=format&fit=crop&w=1600&q=80",
+    tags: ["AI Idea", "Roadtrip", "Scenic"],
+    likes: 1764,
+    user: "Atlas AI",
+    username: "atlasai",
+    destination: "California Coast",
+    length: "7 days",
+    budget: "$3000-$6000",
+    traveler: "Couple",
+    vibe: "Ocean cliffs, slow towns, sunset stops, and scenic drive energy.",
+    blend: "Mix of both",
+    energy: "Balanced",
+    notes: "Classic coastal route energy with photo stops, food anchors, and flexible pacing.",
+    source: "ai",
+  },
+  {
+    id: "ai-new-orleans-food-music",
+    title: "New Orleans Food + Music",
+    location: "New Orleans",
+    image:
+      "https://images.unsplash.com/photo-1514933651103-005eec06c04b?auto=format&fit=crop&w=1600&q=80",
+    tags: ["AI Idea", "Food", "Nightlife"],
+    likes: 1542,
+    user: "Atlas AI",
+    username: "atlasai",
+    destination: "New Orleans",
+    length: "3 days",
+    budget: "$1200-$2500",
+    traveler: "Friends",
+    vibe: "Live music, food crawls, late nights, local streets, and culture everywhere.",
+    blend: "Mix of both",
+    energy: "High-energy",
+    notes: "Built for a high-flavor weekend where every night has a strong anchor.",
+    source: "ai",
+  },
+  {
+    id: "ai-san-diego-family-sun",
+    title: "San Diego Family Sun Trip",
+    location: "San Diego",
+    image:
+      "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=1600&q=80",
+    tags: ["AI Idea", "Family", "Beach"],
+    likes: 902,
+    user: "Atlas AI",
+    username: "atlasai",
+    destination: "San Diego",
+    length: "5 days",
+    budget: "$2500-$4500",
+    traveler: "Family",
+    vibe: "Beaches, zoo moments, coastal neighborhoods, and kid-friendly sunshine.",
+    blend: "Top spots",
+    energy: "Balanced",
+    notes: "A low-stress family sun route with enough structure to feel easy.",
+    source: "ai",
+  },
+  {
+    id: "ai-montreal-food-weekend",
+    title: "Montreal Food Weekend",
+    location: "Montreal",
+    image:
+      "https://images.unsplash.com/photo-1519181245277-cffeb31da2e3?auto=format&fit=crop&w=1600&q=80",
+    tags: ["AI Idea", "Food", "Weekend"],
+    likes: 1190,
+    user: "Atlas AI",
+    username: "atlasai",
+    destination: "Montreal",
+    length: "Weekend",
+    budget: "$900-$1800",
+    traveler: "Couple",
+    vibe: "Old streets, bagels, wine bars, markets, and easy city energy.",
+    blend: "Hidden Gems",
+    energy: "Balanced",
+    notes: "A quick international-feeling weekend with a strong food-and-walkability hook.",
     source: "ai",
   },
 ];
@@ -176,7 +295,14 @@ function getTripHook(trip: FeedTripCard) {
 }
 
 function mapPublishedJourneyToFeedCard(journey: AtlasStoredJourney, index: number): FeedTripCard {
-  const username = journey.isPastJourney ? "danielmccann" : "atlascreator";
+  const username =
+    (journey as any).creatorUsername ||
+    (journey as any).creator_username ||
+    (journey.isPastJourney ? "danielmccann" : "atlascreator");
+  const displayName =
+    (journey as any).creatorName ||
+    (journey as any).creator_name ||
+    username;
 
   return {
     id: journey.id,
@@ -190,8 +316,8 @@ function mapPublishedJourneyToFeedCard(journey: AtlasStoredJourney, index: numbe
       journey.isPastJourney ? "Past Journey" : "Real Journey",
     ].slice(0, 4),
     likes: 240 + index * 67,
-    user: username,
-    username,
+    user: displayName,
+    username: getUsernameSlug(username) || "atlascreator",
     destination: journey.destination,
     length: journey.form.duration || "Flexible",
     budget: journey.form.budget || "Flexible",
@@ -207,6 +333,21 @@ function mapPublishedJourneyToFeedCard(journey: AtlasStoredJourney, index: numbe
     photoCount: journey.photos?.length ?? 0,
     isPastJourney: Boolean(journey.isPastJourney),
   };
+}
+
+
+function getLocalPublishedJourneysForFeed() {
+  if (typeof window === "undefined") return [];
+
+  try {
+    const stored = window.localStorage.getItem("ATLAS_PUBLISHED_JOURNEYS");
+    if (!stored) return [];
+
+    const parsed = JSON.parse(stored);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
 }
 
 export default function FeedPage() {
@@ -232,7 +373,7 @@ export default function FeedPage() {
         const data = await res.json();
         const journeys = Array.isArray(data?.journeys) ? data.journeys : [];
 
-        const mapped: AtlasStoredJourney[] = journeys.map((journey: any) => ({
+        const mapped: any[] = journeys.map((journey: any) => ({
           id: journey.id,
           destination: journey.destination,
           coverImage:
@@ -240,6 +381,7 @@ export default function FeedPage() {
             "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=1600&q=80",
           createdAt: journey.created_at || new Date().toISOString(),
           updatedAt: journey.updated_at || journey.created_at || new Date().toISOString(),
+          source: "published",
           publishedAt: journey.is_published
             ? journey.updated_at || journey.created_at || new Date().toISOString()
             : undefined,
@@ -258,10 +400,14 @@ export default function FeedPage() {
             : [],
           isPublished: Boolean(journey.is_published),
           isPastJourney: false,
+          creatorName: journey.creator_name || journey.creatorName || "Atlas traveler",
+          creatorUsername: journey.creator_username || journey.creatorUsername || "atlasworld",
+          creatorAvatar: journey.creator_avatar || journey.creatorAvatar || "",
           trip: {
             title: journey.title,
             subtitle: journey.subtitle || journey.destination,
             vibeSummary: journey.vibe_summary || journey.subtitle || journey.destination,
+            days: Array.isArray(journey.days) ? journey.days : [],
             highlights: [],
             staySuggestion: journey.stay_suggestion || "Best stay area will be refined by Atlas.",
             transportSuggestion:
@@ -285,11 +431,21 @@ export default function FeedPage() {
           },
         }));
 
-        setPublishedSourceJourneys(mapped);
+        const localPublished = getLocalPublishedJourneysForFeed();
+        const merged = [
+          ...mapped,
+          ...localPublished.filter(
+            (localJourney: any) =>
+              !mapped.some((dbJourney) => dbJourney.id === localJourney.id)
+          ),
+        ];
+
+        setPublishedSourceJourneys(merged as AtlasStoredJourney[]);
       } catch (error) {
         console.error("Published journeys feed load failed", error);
-        setPublishedError("Could not load published journeys right now.");
-        setPublishedSourceJourneys([]);
+        const localPublished = getLocalPublishedJourneysForFeed();
+        setPublishedError(localPublished.length ? null : "Could not load published journeys right now.");
+        setPublishedSourceJourneys(localPublished);
       } finally {
         setLoadingPublished(false);
       }
@@ -304,16 +460,24 @@ export default function FeedPage() {
 
   const featuredPublished = useMemo(() => publishedTrips[0] ?? null, [publishedTrips]);
   const publishedGrid = useMemo(() => publishedTrips.slice(1, 9), [publishedTrips]);
-  const localIdeas = useMemo(() => localFallbacks, []);
-  const aiIdeaCards = useMemo(() => aiIdeas, []);
+  const publishedAll = useMemo(() => publishedTrips.slice(0, 9), [publishedTrips]);
+  const localIdeas = useMemo(() => {
+    return shuffleFeedTrips(localFallbacks).map(bumpTripLikes);
+  }, []);
+
+  const aiIdeaCards = useMemo(() => {
+    return shuffleFeedTrips([...aiIdeas, ...extraAiIdeas])
+      .slice(0, 8)
+      .map(bumpTripLikes);
+  }, []);
   const sectionMode = useMemo(() => getSectionMode(selectedLocation), [selectedLocation]);
 
   const allVisibleTrips = useMemo(() => {
     if (sectionMode === "published") return publishedGrid;
     if (sectionMode === "local") return localIdeas;
     if (sectionMode === "ai") return aiIdeaCards;
-    return [...publishedGrid, ...localIdeas, ...aiIdeaCards];
-  }, [sectionMode, publishedGrid, localIdeas, aiIdeaCards]);
+    return [...publishedAll, ...localIdeas, ...aiIdeaCards];
+  }, [sectionMode, publishedGrid, publishedAll, localIdeas, aiIdeaCards]);
 
   const filteredTrips = useMemo(() => {
     if (!selectedFilter) return allVisibleTrips;

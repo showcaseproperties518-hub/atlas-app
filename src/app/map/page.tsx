@@ -57,6 +57,9 @@ type JourneyRow = {
   is_published?: boolean | null;
   created_at?: string | null;
   updated_at?: string | null;
+  creator_name?: string | null;
+  creator_username?: string | null;
+  creator_avatar?: string | null;
   form?: Partial<AtlasTripFormData> | null;
   trip?: Partial<AtlasTripOutput> | null;
 };
@@ -232,6 +235,172 @@ const fallbackIdeas: MapJourney[] = [
   },
 ];
 
+
+const aiIdeaPool: Array<Omit<MapJourney, "id" | "x" | "y" | "remixCount" | "shareCount">> = [
+  ...fallbackIdeas.map(({ id, x, y, remixCount, shareCount, ...idea }) => idea),
+  {
+    title: "Arizona Desert Route",
+    location: "Arizona",
+    image:
+      "https://images.unsplash.com/photo-1509316785289-025f5b846b35?auto=format&fit=crop&w=1400&q=80",
+    date: "",
+    photos: 0,
+    type: "AI Idea · Desert",
+    source: "ai",
+    destination: "Arizona",
+    duration: "5 days",
+    budget: "$1,500 - $2,500",
+    traveler: "Couple",
+    vibe: "Red rocks, desert sunsets, scenic drives, and warm-weather adventure.",
+    blend: "Mix of both",
+    energy: "Balanced",
+    notes: "Atlas AI idea for a cinematic Southwest route with strong photo payoff.",
+    trendingTag: "🏜 Desert route",
+    videoUrl: "https://www.youtube.com/results?search_query=Arizona+desert+road+trip+travel+vlog",
+    creatorName: "Atlas Desert",
+    creatorHandle: "@atlasdesert",
+    creatorPlatform: "YouTube",
+  },
+  {
+    title: "Maine Coast Weekend",
+    location: "Maine",
+    image:
+      "https://images.unsplash.com/photo-1500534314209-a25ddb2bd429?auto=format&fit=crop&w=1400&q=80",
+    date: "",
+    photos: 0,
+    type: "AI Idea · Coastal",
+    source: "ai",
+    destination: "Maine Coast",
+    duration: "Weekend",
+    budget: "$1,500 - $2,500",
+    traveler: "Family",
+    vibe: "Lighthouses, seafood stops, rocky coastlines, and easy family pacing.",
+    blend: "Mix of both",
+    energy: "Easygoing",
+    notes: "Atlas AI idea for a Northeast coastal escape that feels easy to copy.",
+    trendingTag: "🌊 Coast idea",
+    videoUrl: "https://www.youtube.com/results?search_query=Maine+coast+weekend+travel+vlog",
+    creatorName: "Atlas Coast",
+    creatorHandle: "@atlascoast",
+    creatorPlatform: "YouTube",
+  },
+  {
+    title: "Colorado Mountain Weekend",
+    location: "Colorado",
+    image:
+      "https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?auto=format&fit=crop&w=1400&q=80",
+    date: "",
+    photos: 0,
+    type: "AI Idea · Mountains",
+    source: "ai",
+    destination: "Colorado",
+    duration: "4 days",
+    budget: "$2,000 - $4,000",
+    traveler: "Friends",
+    vibe: "Mountain towns, hikes, views, breweries, and high-altitude energy.",
+    blend: "Hidden gems",
+    energy: "High-energy",
+    notes: "Atlas AI idea for a fast mountain trip with enough structure to feel bookable.",
+    trendingTag: "⛰ Mountain idea",
+    videoUrl: "https://www.tiktok.com/search?q=colorado%20mountain%20weekend%20travel",
+    creatorName: "Atlas Peaks",
+    creatorHandle: "@atlaspeaks",
+    creatorPlatform: "TikTok",
+  },
+  {
+    title: "San Diego Family Sun Trip",
+    location: "San Diego",
+    image:
+      "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=1400&q=80",
+    date: "",
+    photos: 0,
+    type: "AI Idea · Family",
+    source: "ai",
+    destination: "San Diego",
+    duration: "5 days",
+    budget: "$2,000 - $4,000",
+    traveler: "Family",
+    vibe: "Beaches, easy food, zoo moments, coastal neighborhoods, and kid-friendly sunshine.",
+    blend: "Top spots",
+    energy: "Balanced",
+    notes: "Atlas AI idea for families who want low-stress sunshine with big payoff.",
+    trendingTag: "☀️ Family sun",
+    videoUrl: "https://www.instagram.com/explore/search/keyword/?q=san%20diego%20family%20travel",
+    creatorName: "Atlas Family",
+    creatorHandle: "@atlasfamily",
+    creatorPlatform: "Instagram",
+  },
+  {
+    title: "New Orleans Food + Music",
+    location: "New Orleans",
+    image:
+      "https://images.unsplash.com/photo-1514933651103-005eec06c04b?auto=format&fit=crop&w=1400&q=80",
+    date: "",
+    photos: 0,
+    type: "AI Idea · Food",
+    source: "ai",
+    destination: "New Orleans",
+    duration: "3 days",
+    budget: "$1,500 - $2,500",
+    traveler: "Friends",
+    vibe: "Live music, food crawls, late nights, local streets, and culture everywhere.",
+    blend: "Mix of both",
+    energy: "High-energy",
+    notes: "Atlas AI idea built for travelers who want a social, high-flavor weekend.",
+    trendingTag: "🎺 Food route",
+    videoUrl: "https://www.tiktok.com/search?q=new%20orleans%20food%20music%20travel",
+    creatorName: "Atlas Food",
+    creatorHandle: "@atlasfood",
+    creatorPlatform: "TikTok",
+  },
+  {
+    title: "California Coast Drive",
+    location: "California",
+    image:
+      "https://images.unsplash.com/photo-1500534314209-a25ddb2bd429?auto=format&fit=crop&w=1400&q=80",
+    date: "",
+    photos: 0,
+    type: "AI Idea · Road Trip",
+    source: "ai",
+    destination: "California Coast",
+    duration: "7 days",
+    budget: "$4,000 - $7,000",
+    traveler: "Couple",
+    vibe: "Ocean cliffs, slow towns, sunset stops, food anchors, and scenic drive energy.",
+    blend: "Mix of both",
+    energy: "Balanced",
+    notes: "Atlas AI idea for a classic coastal drive that is easy to remix.",
+    trendingTag: "🚗 Scenic drive",
+    videoUrl: "https://www.youtube.com/results?search_query=California+coast+road+trip+travel+vlog",
+    creatorName: "Atlas Drives",
+    creatorHandle: "@atlasdrives",
+    creatorPlatform: "YouTube",
+  },
+  {
+    title: "Montreal Food Weekend",
+    location: "Montreal",
+    image:
+      "https://images.unsplash.com/photo-1519181245277-cffeb31da2e3?auto=format&fit=crop&w=1400&q=80",
+    date: "",
+    photos: 0,
+    type: "AI Idea · Food",
+    source: "ai",
+    destination: "Montreal",
+    duration: "Weekend",
+    budget: "$1,500 - $2,500",
+    traveler: "Couple",
+    vibe: "Old streets, bagels, wine bars, markets, neighborhoods, and easy city energy.",
+    blend: "Hidden gems",
+    energy: "Balanced",
+    notes: "Atlas AI idea for a quick international-feeling weekend from the Northeast.",
+    trendingTag: "🥐 Food weekend",
+    videoUrl: "https://www.instagram.com/explore/search/keyword/?q=montreal%20food%20travel",
+    creatorName: "Atlas City",
+    creatorHandle: "@atlascity",
+    creatorPlatform: "Instagram",
+  },
+];
+
 const filters = ["All", "Published", "AI Ideas", "Past Trips", "Photo Trips"];
 
 function mapDbJourneyToStoredJourney(journey: JourneyRow): any {
@@ -295,6 +464,9 @@ function mapDbJourneyToStoredJourney(journey: JourneyRow): any {
     startDate: journey.start_date ?? undefined,
     endDate: journey.end_date ?? undefined,
     isPastJourney: false,
+    creatorName: journey.creator_name ?? (tripFromDb as any).creatorName ?? "Atlas traveler",
+    creatorUsername: journey.creator_username ?? (tripFromDb as any).creatorUsername ?? "atlasworld",
+    creatorAvatar: journey.creator_avatar ?? (tripFromDb as any).creatorAvatar ?? "",
   };
 }
 
@@ -335,9 +507,11 @@ function mapPublishedJourneyToMapCard(journey: any, index: number): MapJourney {
     shareCount: 31 + index * 9,
     trendingTag: index % 3 === 0 ? "🌍 Published journey" : index % 3 === 1 ? "📸 Photo route" : "🧭 Atlas pick",
     videoUrl: (journey.trip as any)?.videoUrl || (journey.form as any)?.videoUrl || "",
-    creatorName: (journey.trip as any)?.creatorName || "Atlas traveler",
-    creatorHandle: (journey.trip as any)?.creatorHandle || "@atlasworld",
-    creatorPlatform: (journey.trip as any)?.creatorPlatform || "Atlas",
+    creatorName: journey.creatorName || (journey.trip as any)?.creatorName || "Atlas traveler",
+    creatorHandle: `@${(journey.creatorUsername || (journey.trip as any)?.creatorUsername || "atlasworld")
+      .toString()
+      .replace(/^@/, "")}`,
+    creatorPlatform: "Atlas",
   };
 }
 
@@ -591,19 +765,38 @@ function getRotatingFallbackIdeas() {
     { x: "46%", y: "61%" },
   ];
 
-  const rotated = shuffleMapJourneys(fallbackIdeas).map((journey, index) => {
+  const visitSeed = Date.now();
+  const selected = [...aiIdeaPool].sort(() => Math.random() - 0.5).slice(0, 8);
+
+  return selected.map((journey, index) => {
     const position = pinPositions[index % pinPositions.length];
+    const remixBase = 72 + Math.floor(Math.random() * 260);
+    const shareBase = 24 + Math.floor(Math.random() * 120);
 
     return {
       ...journey,
+      id: `ai-${visitSeed}-${index}-${journey.destination.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`,
       x: position.x,
       y: position.y,
-      remixCount: Math.max(42, journey.remixCount + Math.floor(Math.random() * 18) - 8),
-      shareCount: Math.max(18, journey.shareCount + Math.floor(Math.random() * 12) - 5),
+      remixCount: remixBase,
+      shareCount: shareBase,
     };
   });
+}
 
-  return rotated;
+
+function getLocalPublishedJourneysForMap() {
+  if (typeof window === "undefined") return [];
+
+  try {
+    const stored = window.localStorage.getItem("ATLAS_PUBLISHED_JOURNEYS");
+    if (!stored) return [];
+
+    const parsed = JSON.parse(stored);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
 }
 
 function useIsMobile(breakpoint = 1024) {
@@ -652,10 +845,19 @@ export default function MapPage() {
         }
 
         const mapped = ((data ?? []) as JourneyRow[]).map(mapDbJourneyToStoredJourney);
-        setPublishedSourceJourneys(mapped);
+        const localPublished = getLocalPublishedJourneysForMap();
+        const merged = [
+          ...mapped,
+          ...localPublished.filter(
+            (localJourney: any) =>
+              !mapped.some((dbJourney: any) => dbJourney.id === localJourney.id)
+          ),
+        ];
+
+        setPublishedSourceJourneys(merged);
       } catch (error) {
         console.error("Failed to load published journeys for map", error);
-        setPublishedSourceJourneys([]);
+        setPublishedSourceJourneys(getLocalPublishedJourneysForMap());
       }
     }
 
@@ -664,7 +866,8 @@ export default function MapPage() {
 
   const allJourneys = useMemo(() => {
     const published = publishedSourceJourneys.map(mapPublishedJourneyToMapCard);
-    return published.length ? [...published, ...rotatingFallbackIdeas] : rotatingFallbackIdeas;
+    const aiFill = rotatingFallbackIdeas.slice(0, Math.max(6, 10 - published.length));
+    return [...published, ...aiFill];
   }, [publishedSourceJourneys, rotatingFallbackIdeas]);
 
   const journeys = useMemo(() => {
@@ -689,7 +892,11 @@ export default function MapPage() {
     return allJourneys;
   }, [activeFilter, allJourneys]);
 
-  const featuredJourneys = useMemo(() => shuffleMapJourneys(journeys).slice(0, 6), [journeys]);
+  const featuredJourneys = useMemo(() => {
+    const published = journeys.filter((journey) => journey.source === "published");
+    const ai = journeys.filter((journey) => journey.source === "ai");
+    return [...published.slice(0, 4), ...shuffleMapJourneys(ai)].slice(0, 6);
+  }, [journeys]);
 
   const activeJourney = useMemo(() => {
     const activeId = hoveredPinId || selectedId;
@@ -1673,7 +1880,7 @@ export default function MapPage() {
                     </button>
                     <button
                       type="button"
-                      onClick={() => handleOpenSocial(getTripVideoUrl(trip))}
+                      onClick={() => handleOpenCreator(trip)}
                       className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-900"
                     >
                       Open Profile
