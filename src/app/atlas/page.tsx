@@ -35,17 +35,34 @@ type AtlasProfile = {
   username: string;
   bio: string;
   avatar: string;
+  bannerImage?: string;
+  location?: string;
+  travelerType?: string;
+  countriesVisited?: number;
+  instagram?: string;
+  tiktok?: string;
+  youtube?: string;
+  facebook?: string;
+  joinedAt?: string;
 };
 
 
 const ATLAS_PROFILE_STORAGE_KEY = "atlas_profile";
 
 const defaultAtlasProfile: AtlasProfile = {
-  name: "Your Name",
-  username: "yourname",
-  bio: "Building journeys, capturing moments, and mapping the world through Atlas.",
-  avatar:
-    "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=600&q=80",
+  name: "",
+  username: "",
+  bio: "",
+  avatar: "",
+  bannerImage: "",
+  location: "",
+  travelerType: "Adventure Traveler",
+  countriesVisited: 0,
+  instagram: "",
+  tiktok: "",
+  youtube: "",
+  facebook: "",
+  joinedAt: "2026",
 };
 
 function sanitizeUsername(value: string) {
@@ -54,7 +71,7 @@ function sanitizeUsername(value: string) {
       .toLowerCase()
       .replace(/^@/, "")
       .replace(/[^a-z0-9]+/g, "")
-      .trim() || "yourname"
+      .trim() || ""
   );
 }
 
@@ -68,14 +85,78 @@ function getInitialProfile() {
     const parsed = JSON.parse(stored) as Partial<AtlasProfile>;
 
     return {
-      name: parsed.name || defaultAtlasProfile.name,
-      username: sanitizeUsername(parsed.username || defaultAtlasProfile.username),
-      bio: parsed.bio || defaultAtlasProfile.bio,
-      avatar: parsed.avatar || defaultAtlasProfile.avatar,
+      name: parsed.name || "",
+      username: sanitizeUsername(parsed.username || ""),
+      bio: parsed.bio || "",
+      avatar: parsed.avatar || "",
+      bannerImage: parsed.bannerImage || "",
+      location: parsed.location || "",
+      travelerType: parsed.travelerType || "Adventure Traveler",
+      countriesVisited: parsed.countriesVisited || 0,
+      instagram: parsed.instagram || "",
+      tiktok: parsed.tiktok || "",
+      youtube: parsed.youtube || "",
+      facebook: parsed.facebook || "",
+      joinedAt: parsed.joinedAt || "2026",
     };
   } catch {
     return defaultAtlasProfile;
   }
+}
+
+
+function getDisplayName(profile: AtlasProfile) {
+  return profile.name.trim() || "Add your name";
+}
+
+function getDisplayUsername(profile: AtlasProfile) {
+  return sanitizeUsername(profile.username) || "chooseusername";
+}
+
+function getInitialLetter(profile: AtlasProfile) {
+  const source = profile.name.trim() || profile.username.trim() || "A";
+  return source.charAt(0).toUpperCase();
+}
+
+function normalizeHandle(value?: string) {
+  return (value || "").trim().replace(/^@/, "");
+}
+
+function ProfileAvatar({
+  profile,
+  size = "large",
+}: {
+  profile: AtlasProfile;
+  size?: "small" | "medium" | "large";
+}) {
+  const sizeClass =
+    size === "small" ? "h-14 w-14 text-xl" : size === "medium" ? "h-24 w-24 text-3xl" : "h-28 w-28 text-4xl";
+
+  return (
+    <div className={`${sizeClass} overflow-hidden rounded-full shadow-md ring-4 ring-white/80`}>
+      {profile.avatar ? (
+        <img
+          src={profile.avatar}
+          alt={`${getDisplayName(profile)} profile`}
+          className="h-full w-full object-cover"
+        />
+      ) : (
+        <div className="flex h-full w-full items-center justify-center bg-[linear-gradient(135deg,#d6b98c,#4f8ef7)] font-semibold text-white">
+          {getInitialLetter(profile)}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function SocialLink({ label, value }: { label: string; value?: string }) {
+  if (!value) return null;
+
+  return (
+    <span className="rounded-full border border-slate-200 bg-white/85 px-3 py-1.5 text-xs font-semibold text-slate-700">
+      {label} @{normalizeHandle(value)}
+    </span>
+  );
 }
 
 function mapJourneyToCard(
@@ -191,12 +272,19 @@ export default function AtlasPage() {
 
   function handleSaveProfile() {
     const nextProfile: AtlasProfile = {
-      name: draftProfile.name.trim() || "Atlas Creator",
+      name: draftProfile.name.trim(),
       username: sanitizeUsername(draftProfile.username),
-      bio:
-        draftProfile.bio.trim() ||
-        "Building journeys, capturing moments, and mapping the world through Atlas.",
-      avatar: draftProfile.avatar.trim() || defaultAtlasProfile.avatar,
+      bio: draftProfile.bio.trim(),
+      avatar: draftProfile.avatar.trim(),
+      bannerImage: draftProfile.bannerImage?.trim() || "",
+      location: draftProfile.location?.trim() || "",
+      travelerType: draftProfile.travelerType?.trim() || "Adventure Traveler",
+      countriesVisited: Number(draftProfile.countriesVisited || 0),
+      instagram: normalizeHandle(draftProfile.instagram),
+      tiktok: normalizeHandle(draftProfile.tiktok),
+      youtube: draftProfile.youtube?.trim() || "",
+      facebook: normalizeHandle(draftProfile.facebook),
+      joinedAt: draftProfile.joinedAt?.trim() || "2026",
     };
 
     setProfile(nextProfile);
@@ -265,8 +353,13 @@ export default function AtlasPage() {
     <main className="relative min-h-screen overflow-hidden bg-[#f5f7fb] text-slate-900">
       <section className="relative h-[360px] overflow-hidden">
         <img
-          src="https://images.unsplash.com/photo-1516483638261-f4dbaf036963?auto=format&fit=crop&w=1800&q=80"
-          alt="Amalfi Coast"
+          src={
+            profile.bannerImage ||
+            publishedCards[0]?.image ||
+            privateCards[0]?.image ||
+            "https://images.unsplash.com/photo-1516483638261-f4dbaf036963?auto=format&fit=crop&w=1800&q=80"
+          }
+          alt="Atlas profile banner"
           className="absolute inset-0 h-full w-full object-cover"
         />
 
@@ -311,24 +404,68 @@ export default function AtlasPage() {
         <section className="mt-6 rounded-[28px] border border-white/70 bg-white/75 p-6 shadow-xl backdrop-blur-xl sm:p-8">
           <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
             <div className="flex flex-col gap-5 sm:flex-row sm:items-center">
-              <div className="h-24 w-24 overflow-hidden rounded-full shadow-md ring-4 ring-white/70">
-                <img
-                  src={profile.avatar}
-                  alt={`${profile.name} profile`}
-                  className="h-full w-full object-cover"
-                />
+              <div className="relative">
+                <ProfileAvatar profile={profile} size="medium" />
+                {!profile.avatar ? (
+                  <button
+                    type="button"
+                    onClick={handleOpenEditProfile}
+                    className="absolute -bottom-2 left-1/2 w-max -translate-x-1/2 rounded-full bg-slate-950 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-white shadow-lg"
+                  >
+                    Add photo
+                  </button>
+                ) : null}
               </div>
 
               <div>
                 <div className="flex flex-wrap items-center gap-3">
-                  <h2 className="text-3xl font-bold">{profile.name}</h2>
+                  <h2 className="text-3xl font-bold">{getDisplayName(profile)}</h2>
                   <span className="rounded-full bg-[#d6b98c] px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-slate-950">
-                    Atlas Creator
+                    {profile.travelerType || "Traveler"}
                   </span>
                 </div>
-                <p className="mt-1 text-slate-500">@{profile.username} · Posted by you</p>
+                <p className="mt-1 text-slate-500">@{getDisplayUsername(profile)} · Travel identity</p>
 
-                <p className="mt-3 max-w-2xl text-slate-600">{profile.bio}</p>
+                <p className="mt-3 max-w-2xl text-slate-600">
+                  {profile.bio || "Add a short bio so your trips feel personal, real, and worth following."}
+                </p>
+
+                <div className="mt-5 flex flex-wrap gap-2">
+                  {profile.location ? (
+                    <span className="rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-medium text-slate-700">
+                      {profile.location}
+                    </span>
+                  ) : null}
+
+                  {profile.countriesVisited ? (
+                    <span className="rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-medium text-slate-700">
+                      {profile.countriesVisited} countries visited
+                    </span>
+                  ) : null}
+
+                  {profile.joinedAt ? (
+                    <span className="rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-medium text-slate-700">
+                      Atlas since {profile.joinedAt}
+                    </span>
+                  ) : null}
+
+                  {!profile.location && !profile.countriesVisited ? (
+                    <span className="rounded-full border border-dashed border-slate-300 bg-white px-3 py-1 text-xs font-medium text-slate-500">
+                      Add location + travel style
+                    </span>
+                  ) : null}
+                </div>
+
+                <div className="mt-4 flex flex-wrap gap-2">
+                  <SocialLink label="IG" value={profile.instagram} />
+                  <SocialLink label="TikTok" value={profile.tiktok} />
+                  <SocialLink label="FB" value={profile.facebook} />
+                  {profile.youtube ? (
+                    <span className="rounded-full border border-slate-200 bg-white/85 px-3 py-1.5 text-xs font-semibold text-slate-700">
+                      YouTube
+                    </span>
+                  ) : null}
+                </div>
 
                 <div className="mt-4 flex flex-wrap gap-3">
                   <button
@@ -340,7 +477,7 @@ export default function AtlasPage() {
                   </button>
 
                   <Link
-                    href={`/user/${profile.username}`}
+                    href={`/user/${getDisplayUsername(profile)}`}
                     className="rounded-full bg-slate-900 px-5 py-2 text-sm font-semibold text-white shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
                   >
                     View Public Profile
@@ -432,10 +569,9 @@ export default function AtlasPage() {
           </div>
 
           <div className="mt-8 rounded-[24px] bg-sky-50/90 p-5">
-            <h3 className="text-lg font-semibold">Your map should feel alive</h3>
+            <h3 className="text-lg font-semibold">Your travel identity should feel alive</h3>
             <p className="mt-2 text-slate-600">
-              Atlas gets stronger when your real trips, photos, and memories become part of the
-              world map. Past journeys should be easy to add, visual to browse, and ready to remix.
+              Atlas gets stronger when your real trips, photos, videos, and memories become part of your profile and the world map. Past journeys should be easy to add, visual to browse, and ready to remix.
             </p>
 
             <div className="mt-4 flex flex-wrap gap-3">
@@ -707,8 +843,8 @@ export default function AtlasPage() {
       </div>
 
       {isEditingProfile ? (
-        <div className="fixed inset-0 z-50 flex items-end justify-center bg-slate-950/50 px-4 pb-4 backdrop-blur-sm sm:items-center sm:pb-0">
-          <div className="w-full max-w-xl overflow-hidden rounded-[32px] border border-white/70 bg-white shadow-[0_30px_120px_rgba(15,23,42,0.35)]">
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-slate-950/50 px-3 pb-3 pt-6 backdrop-blur-sm sm:items-center sm:px-4 sm:pb-0">
+          <div className="max-h-[94vh] w-full max-w-xl overflow-hidden rounded-[32px] border border-white/70 bg-white shadow-[0_30px_120px_rgba(15,23,42,0.35)]">
             <div className="border-b border-slate-100 bg-[#f8f1e6] px-6 py-5">
               <p className="text-[11px] font-semibold uppercase tracking-[0.3em] text-[#8a6631]">
                 Atlas Profile
@@ -717,11 +853,11 @@ export default function AtlasPage() {
                 Edit your profile
               </h2>
               <p className="mt-2 text-sm leading-6 text-slate-600">
-                This saves on this browser for tonight. Later we can sync it to Supabase accounts.
+                Build your Atlas identity. Add your photo, travel style, location, and social handles.
               </p>
             </div>
 
-            <div className="space-y-4 p-6">
+            <div className="max-h-[68vh] space-y-4 overflow-y-auto p-6">
               <label className="block">
                 <span className="text-sm font-semibold text-slate-700">Name</span>
                 <input
@@ -773,19 +909,138 @@ export default function AtlasPage() {
                 />
               </label>
 
+              <div className="grid gap-4 sm:grid-cols-2">
+                <label className="block">
+                  <span className="text-sm font-semibold text-slate-700">Location</span>
+                  <input
+                    value={draftProfile.location || ""}
+                    onChange={(e) =>
+                      setDraftProfile((current) => ({
+                        ...current,
+                        location: e.target.value,
+                      }))
+                    }
+                    className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-[#d6b98c] focus:ring-4 focus:ring-[#d6b98c]/15"
+                    placeholder="Albany, NY"
+                  />
+                </label>
+
+                <label className="block">
+                  <span className="text-sm font-semibold text-slate-700">Traveler type</span>
+                  <input
+                    value={draftProfile.travelerType || ""}
+                    onChange={(e) =>
+                      setDraftProfile((current) => ({
+                        ...current,
+                        travelerType: e.target.value,
+                      }))
+                    }
+                    className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-[#d6b98c] focus:ring-4 focus:ring-[#d6b98c]/15"
+                    placeholder="Adventure Traveler"
+                  />
+                </label>
+              </div>
+
+              <div className="grid gap-4 sm:grid-cols-2">
+                <label className="block">
+                  <span className="text-sm font-semibold text-slate-700">Countries visited</span>
+                  <input
+                    type="number"
+                    min="0"
+                    value={draftProfile.countriesVisited || 0}
+                    onChange={(e) =>
+                      setDraftProfile((current) => ({
+                        ...current,
+                        countriesVisited: Number(e.target.value || 0),
+                      }))
+                    }
+                    className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-[#d6b98c] focus:ring-4 focus:ring-[#d6b98c]/15"
+                    placeholder="7"
+                  />
+                </label>
+
+                <label className="block">
+                  <span className="text-sm font-semibold text-slate-700">Atlas since</span>
+                  <input
+                    value={draftProfile.joinedAt || ""}
+                    onChange={(e) =>
+                      setDraftProfile((current) => ({
+                        ...current,
+                        joinedAt: e.target.value,
+                      }))
+                    }
+                    className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-[#d6b98c] focus:ring-4 focus:ring-[#d6b98c]/15"
+                    placeholder="2026"
+                  />
+                </label>
+              </div>
+
+              <div className="rounded-[24px] border border-slate-200 bg-slate-50 p-4">
+                <span className="text-sm font-semibold text-slate-700">Social handles</span>
+                <p className="mt-1 text-xs text-slate-500">
+                  These prepare Atlas for the future social share layer.
+                </p>
+
+                <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                  <input
+                    value={draftProfile.instagram || ""}
+                    onChange={(e) =>
+                      setDraftProfile((current) => ({
+                        ...current,
+                        instagram: normalizeHandle(e.target.value),
+                      }))
+                    }
+                    className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none"
+                    placeholder="Instagram handle"
+                  />
+
+                  <input
+                    value={draftProfile.tiktok || ""}
+                    onChange={(e) =>
+                      setDraftProfile((current) => ({
+                        ...current,
+                        tiktok: normalizeHandle(e.target.value),
+                      }))
+                    }
+                    className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none"
+                    placeholder="TikTok handle"
+                  />
+
+                  <input
+                    value={draftProfile.facebook || ""}
+                    onChange={(e) =>
+                      setDraftProfile((current) => ({
+                        ...current,
+                        facebook: normalizeHandle(e.target.value),
+                      }))
+                    }
+                    className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none"
+                    placeholder="Facebook profile/page"
+                  />
+
+                  <input
+                    value={draftProfile.youtube || ""}
+                    onChange={(e) =>
+                      setDraftProfile((current) => ({
+                        ...current,
+                        youtube: e.target.value,
+                      }))
+                    }
+                    className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none"
+                    placeholder="YouTube channel URL"
+                  />
+                </div>
+              </div>
+
               <div className="rounded-[24px] border border-slate-200 bg-slate-50 p-4">
                 <span className="text-sm font-semibold text-slate-700">Profile photo</span>
 
                 <div className="mt-4 flex flex-col gap-4 sm:flex-row sm:items-center">
-                  <img
-                    src={draftProfile.avatar || defaultAtlasProfile.avatar}
-                    alt="Profile preview"
-                    className="h-24 w-24 rounded-full object-cover ring-4 ring-white shadow-md"
-                  />
+                  <ProfileAvatar profile={draftProfile} size="medium" />
 
                   <div className="flex-1">
                     <label className="inline-flex cursor-pointer items-center justify-center rounded-2xl bg-slate-900 px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">
-                      Upload Photo
+                      Add Your Photo
                       <input
                         type="file"
                         accept="image/*"
@@ -795,21 +1050,23 @@ export default function AtlasPage() {
                     </label>
 
                     <p className="mt-2 text-xs leading-5 text-slate-500">
-                      Choose a photo from your device. Atlas will save it on this browser for now.
+                      No fake avatar. Add a real photo or keep the clean initials placeholder.
                     </p>
 
-                    <button
-                      type="button"
-                      onClick={() =>
-                        setDraftProfile((current) => ({
-                          ...current,
-                          avatar: defaultAtlasProfile.avatar,
-                        }))
-                      }
-                      className="mt-3 text-xs font-semibold text-slate-500 underline decoration-slate-300 underline-offset-4"
-                    >
-                      Use default photo
-                    </button>
+                    {draftProfile.avatar ? (
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setDraftProfile((current) => ({
+                            ...current,
+                            avatar: "",
+                          }))
+                        }
+                        className="mt-3 text-xs font-semibold text-slate-500 underline decoration-slate-300 underline-offset-4"
+                      >
+                        Remove photo
+                      </button>
+                    ) : null}
                   </div>
                 </div>
 
@@ -832,17 +1089,13 @@ export default function AtlasPage() {
               </div>
 
               <div className="flex items-center gap-3 rounded-2xl bg-slate-50 p-3">
-                <img
-                  src={draftProfile.avatar || defaultAtlasProfile.avatar}
-                  alt="Profile preview"
-                  className="h-14 w-14 rounded-full object-cover"
-                />
+                <ProfileAvatar profile={draftProfile} size="small" />
                 <div>
                   <p className="font-semibold text-slate-950">
-                    {draftProfile.name || "Atlas Creator"}
+                    {getDisplayName(draftProfile)}
                   </p>
                   <p className="text-sm text-slate-500">
-                    @{sanitizeUsername(draftProfile.username)}
+                    @{getDisplayUsername(draftProfile)} · {draftProfile.travelerType || "Traveler"}
                   </p>
                 </div>
               </div>

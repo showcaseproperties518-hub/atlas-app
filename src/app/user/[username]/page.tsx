@@ -39,6 +39,15 @@ type AtlasProfile = {
   username: string;
   bio: string;
   avatar: string;
+  bannerImage?: string;
+  location?: string;
+  travelerType?: string;
+  countriesVisited?: number;
+  instagram?: string;
+  tiktok?: string;
+  youtube?: string;
+  facebook?: string;
+  joinedAt?: string;
 };
 
 const fallbackCreatorJourneys: ProfileJourney[] = [
@@ -126,11 +135,19 @@ const fallbackCreatorJourneys: ProfileJourney[] = [
 const ATLAS_PROFILE_STORAGE_KEY = "atlas_profile";
 
 const defaultAtlasProfile: AtlasProfile = {
-  name: "Atlas Creator",
-  username: "atlascreator",
-  bio: "Building journeys, capturing moments, and mapping the world through Atlas.",
-  avatar:
-    "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=600&q=80",
+  name: "",
+  username: "",
+  bio: "",
+  avatar: "",
+  bannerImage: "",
+  location: "",
+  travelerType: "Adventure Traveler",
+  countriesVisited: 0,
+  instagram: "",
+  tiktok: "",
+  youtube: "",
+  facebook: "",
+  joinedAt: "2026",
 };
 
 function sanitizeUsername(value?: string) {
@@ -153,10 +170,19 @@ function getStoredAtlasProfile() {
     const parsed = JSON.parse(stored) as Partial<AtlasProfile>;
 
     return {
-      name: parsed.name || defaultAtlasProfile.name,
-      username: sanitizeUsername(parsed.username || defaultAtlasProfile.username),
-      bio: parsed.bio || defaultAtlasProfile.bio,
-      avatar: parsed.avatar || defaultAtlasProfile.avatar,
+      name: parsed.name || "",
+      username: sanitizeUsername(parsed.username || ""),
+      bio: parsed.bio || "",
+      avatar: parsed.avatar || "",
+      bannerImage: parsed.bannerImage || "",
+      location: parsed.location || "",
+      travelerType: parsed.travelerType || "Adventure Traveler",
+      countriesVisited: parsed.countriesVisited || 0,
+      instagram: parsed.instagram || "",
+      tiktok: parsed.tiktok || "",
+      youtube: parsed.youtube || "",
+      facebook: parsed.facebook || "",
+      joinedAt: parsed.joinedAt || "2026",
     };
   } catch {
     return defaultAtlasProfile;
@@ -236,6 +262,79 @@ function getCreatorBio(username: string) {
   return "Building journeys, capturing moments, and mapping the world through Atlas.";
 }
 
+function normalizeHandle(value?: string) {
+  return (value || "").trim().replace(/^@/, "");
+}
+
+function getProfileDisplayName(profile: AtlasProfile, username: string) {
+  return profile.name?.trim() || getDisplayName(username) || "Atlas Traveler";
+}
+
+function getProfileBio(profile: AtlasProfile, username: string) {
+  return (
+    profile.bio?.trim() ||
+    getCreatorBio(username) ||
+    "Real journeys, visual stories, and buildable travel routes on Atlas."
+  );
+}
+
+function getInitialLetter(name: string, username: string) {
+  const source = name.trim() || username.trim() || "A";
+  return source.charAt(0).toUpperCase();
+}
+
+function ProfileAvatar({
+  avatar,
+  name,
+  username,
+  size = "large",
+}: {
+  avatar?: string;
+  name: string;
+  username: string;
+  size?: "small" | "medium" | "large";
+}) {
+  const sizeClass =
+    size === "small"
+      ? "h-12 w-12 text-lg"
+      : size === "medium"
+        ? "h-20 w-20 text-2xl"
+        : "h-28 w-28 text-4xl";
+
+  return (
+    <div className={`${sizeClass} overflow-hidden rounded-full shadow-lg ring-4 ring-white/80`}>
+      {avatar ? (
+        <img src={avatar} alt={name} className="h-full w-full object-cover" />
+      ) : (
+        <div className="flex h-full w-full items-center justify-center bg-[linear-gradient(135deg,#d6b98c,#4f8ef7)] font-semibold text-white">
+          {getInitialLetter(name, username)}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function IdentityPill({ label }: { label?: string | number }) {
+  if (!label) return null;
+
+  return (
+    <span className="rounded-full border border-neutral-200 bg-white/85 px-3 py-1.5 text-xs font-semibold text-neutral-700 shadow-sm">
+      {label}
+    </span>
+  );
+}
+
+function SocialPill({ label, value }: { label: string; value?: string }) {
+  if (!value) return null;
+
+  return (
+    <span className="rounded-full border border-neutral-200 bg-white/85 px-3 py-1.5 text-xs font-semibold text-neutral-700 shadow-sm">
+      {label} @{normalizeHandle(value)}
+    </span>
+  );
+}
+
+
 function buildResultsPayload(journey: ProfileJourney) {
   return {
     destination: journey.destination,
@@ -284,9 +383,17 @@ export default function UserProfilePage() {
   const [isLoadingJourneys, setIsLoadingJourneys] = useState(true);
 
   const profileMatchesRoute = sanitizeUsername(profile.username) === sanitizeUsername(username);
-  const displayName = profileMatchesRoute ? profile.name : getDisplayName(username);
-  const profileBio = profileMatchesRoute ? profile.bio : getCreatorBio(username);
-  const profileAvatar = profileMatchesRoute ? profile.avatar : defaultAtlasProfile.avatar;
+  const displayName = profileMatchesRoute ? getProfileDisplayName(profile, username) : getDisplayName(username);
+  const profileBio = profileMatchesRoute ? getProfileBio(profile, username) : getCreatorBio(username);
+  const profileAvatar = profileMatchesRoute ? profile.avatar : "";
+  const travelerType = profileMatchesRoute ? profile.travelerType || "Adventure Traveler" : "Atlas Traveler";
+  const profileLocation = profileMatchesRoute ? profile.location || "" : "";
+  const profileCountries = profileMatchesRoute ? profile.countriesVisited || 0 : 0;
+  const joinedAt = profileMatchesRoute ? profile.joinedAt || "2026" : "2026";
+  const profileInstagram = profileMatchesRoute ? profile.instagram : "";
+  const profileTiktok = profileMatchesRoute ? profile.tiktok : "";
+  const profileYoutube = profileMatchesRoute ? profile.youtube : "";
+  const profileFacebook = profileMatchesRoute ? profile.facebook : "";
 
   useEffect(() => {
     setProfile(getStoredAtlasProfile());
@@ -391,13 +498,12 @@ export default function UserProfilePage() {
           <div className="mt-8 grid gap-6 lg:grid-cols-[0.92fr_1.08fr] lg:items-end">
             <div className="rounded-[34px] border border-white/70 bg-white/58 p-5 shadow-[0_26px_80px_rgba(0,0,0,0.10)] backdrop-blur sm:p-6">
               <div className="flex flex-col gap-5 sm:flex-row sm:items-center">
-                <div className="h-28 w-28 overflow-hidden rounded-full shadow-lg ring-4 ring-white/80">
-                  <img
-                    src={profileAvatar}
-                    alt={displayName}
-                    className="h-full w-full object-cover"
-                  />
-                </div>
+                <ProfileAvatar
+                  avatar={profileAvatar}
+                  name={displayName}
+                  username={username}
+                  size="large"
+                />
 
                 <div>
                   <div className="flex flex-wrap items-center gap-3">
@@ -405,7 +511,7 @@ export default function UserProfilePage() {
                       {displayName}
                     </h1>
                     <span className="rounded-full bg-[#d6b98c] px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-neutral-950">
-                      Atlas Creator
+                      {travelerType}
                     </span>
                   </div>
 
@@ -413,6 +519,21 @@ export default function UserProfilePage() {
                   <p className="mt-4 max-w-xl text-sm leading-6 text-neutral-700">
                     {profileBio}
                   </p>
+
+                  <div className="mt-4 flex flex-wrap gap-2">
+                    <IdentityPill label={profileLocation} />
+                    {profileCountries ? (
+                      <IdentityPill label={`${profileCountries} countries visited`} />
+                    ) : null}
+                    <IdentityPill label={`Atlas since ${joinedAt}`} />
+                  </div>
+
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    <SocialPill label="IG" value={profileInstagram} />
+                    <SocialPill label="TikTok" value={profileTiktok} />
+                    <SocialPill label="FB" value={profileFacebook} />
+                    {profileYoutube ? <IdentityPill label="YouTube" /> : null}
+                  </div>
                 </div>
               </div>
 
@@ -465,7 +586,7 @@ export default function UserProfilePage() {
               <div className="absolute inset-0 bg-gradient-to-t from-black/88 via-black/18 to-transparent" />
 
               <div className="absolute left-5 top-5 rounded-full border border-white/20 bg-white/16 px-3 py-2 text-[10px] font-bold uppercase tracking-[0.24em] text-white backdrop-blur">
-                Creator Map Preview
+                Travel Identity
               </div>
 
               <div className="absolute bottom-5 left-5 right-5 text-white">
@@ -473,12 +594,20 @@ export default function UserProfilePage() {
                   Travel identity
                 </p>
                 <h2 className="mt-2 max-w-2xl text-4xl font-semibold leading-tight">
-                  Trips, photos, routes, and remixes in one place
+                  Real journeys. Real memories. Buildable travel stories.
                 </h2>
                 <p className="mt-3 max-w-xl text-sm leading-6 text-white/78">
-                  This profile is the start of the Atlas social layer: every creator can publish
-                  journeys, build credibility, and turn their travel history into routes other people can use.
+                  This is where travel memories become useful: photos, future reels, real routes,
+                  and journeys other people can save, remix, and build into their own version.
                 </p>
+                <div className="mt-5 rounded-[24px] border border-white/15 bg-white/10 p-4 backdrop-blur">
+                  <p className="text-[10px] font-semibold uppercase tracking-[0.24em] text-white/55">
+                    Watch Trips
+                  </p>
+                  <p className="mt-2 text-sm leading-6 text-white/78">
+                    Short-form travel clips, creator reels, and trip videos will live here as Atlas evolves.
+                  </p>
+                </div>
               </div>
             </div>
           </div>
@@ -489,14 +618,14 @@ export default function UserProfilePage() {
         <div className="space-y-6">
           <div className="rounded-[30px] border border-white/70 bg-white/82 p-5 shadow-[0_18px_55px_rgba(0,0,0,0.07)] backdrop-blur sm:p-6">
             <p className="text-[11px] uppercase tracking-[0.34em] text-neutral-500">
-              Published journeys
+              Creator journeys
             </p>
             <h2 className="mt-2 text-3xl font-semibold leading-tight">
-              {visibleJourneys.length > 0 ? "Trips worth opening, saving, and remixing" : "No public trips yet"}
+              {visibleJourneys.length > 0 ? "Trips worth watching, saving, and remixing" : "No public trips yet"}
             </h2>
             <p className="mt-3 max-w-3xl text-sm leading-6 text-neutral-700">
               {visibleJourneys.length > 0
-                ? "Creator profiles make Atlas feel alive. Every trip below can open into the full Results experience or become the starting point for someone else’s version."
+                ? "Creator profiles make Atlas feel alive. Every trip below can open into a usable route, inspire a future reel, or become the starting point for someone else’s version."
                 : "Publish a journey from My Atlas and it will appear here as part of your public travel profile."}
             </p>
           </div>
@@ -600,14 +729,14 @@ export default function UserProfilePage() {
         <aside className="hidden space-y-5 lg:block lg:sticky lg:top-28 lg:self-start">
           <div className="rounded-[30px] border border-white/70 bg-white/82 p-5 shadow-[0_18px_55px_rgba(0,0,0,0.08)]">
             <p className="text-[11px] font-semibold uppercase tracking-[0.34em] text-neutral-500">
-              Creator signal
+              Trust layer
             </p>
             <h2 className="mt-2 text-2xl font-semibold leading-tight text-neutral-950">
-              Profiles make trips trustworthy.
+              Real profiles make trips believable.
             </h2>
             <p className="mt-3 text-sm leading-6 text-neutral-700">
               A journey feels stronger when it belongs to someone. This page becomes the public home
-              for trips, photos, remixes, and future social posting.
+              for trips, photos, short videos, remixes, and future social sharing.
             </p>
           </div>
 
