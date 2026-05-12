@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
+import type { User } from "@supabase/supabase-js";
 import { useRouter } from "next/navigation";
 import {
   AtlasStoredJourney,
@@ -14,6 +15,7 @@ import {
   ATLAS_BUILD_PREFILL_STORAGE_KEY,
   ATLAS_BUILD_STORAGE_KEY,
 } from "@/app/lib/atlas-trip";
+import { createClient } from "@/app/lib/supabase-client";
 
 type AtlasJourneyCard = {
   id: string;
@@ -192,6 +194,9 @@ export default function AtlasPage() {
   const [savedJourneys, setSavedJourneys] = useState<AtlasStoredJourney[]>([]);
   const [publishedJourneys, setPublishedJourneys] = useState<AtlasStoredJourney[]>([]);
   const [isReady, setIsReady] = useState(false);
+  const [authUser, setAuthUser] = useState<User | null>(null);
+  const [isAuthReady, setIsAuthReady] = useState(false);
+  const [authMessage, setAuthMessage] = useState("");
 
   useEffect(() => {
     const loadedProfile = getInitialProfile();
@@ -203,6 +208,26 @@ export default function AtlasPage() {
     setSavedJourneys(saved);
     setPublishedJourneys(published);
     setIsReady(true);
+  }, []);
+
+  useEffect(() => {
+    const supabase = createClient();
+
+    supabase.auth.getUser().then(({ data }) => {
+      setAuthUser(data.user ?? null);
+      setIsAuthReady(true);
+    });
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      setAuthUser(session?.user ?? null);
+      setIsAuthReady(true);
+    });
+
+    return () => {
+      subscription.unsubscribe();
+    };
   }, []);
 
   const publishedIds = useMemo(() => {
@@ -244,6 +269,23 @@ export default function AtlasPage() {
 
   const totalTripsCount = allJourneyCards.length;
   const publishedTripsCount = publishedCards.length;
+  const isLoggedIn = Boolean(authUser);
+  const loginRedirect = "/login";
+  const accountEmail = authUser?.email || "";
+
+  async function handleSignOut() {
+    try {
+      const supabase = createClient();
+      await supabase.auth.signOut();
+      setAuthUser(null);
+      setAuthMessage("Signed out of Atlas");
+      window.setTimeout(() => setAuthMessage(""), 2200);
+    } catch (error) {
+      console.error("Sign out failed", error);
+      setAuthMessage("Could not sign out. Try again.");
+      window.setTimeout(() => setAuthMessage(""), 2600);
+    }
+  }
 
   function handleOpenEditProfile() {
     setDraftProfile(profile);
@@ -291,7 +333,7 @@ export default function AtlasPage() {
     setDraftProfile(nextProfile);
     window.localStorage.setItem(ATLAS_PROFILE_STORAGE_KEY, JSON.stringify(nextProfile));
     setIsEditingProfile(false);
-    setProfileMessage("Profile saved");
+    setProfileMessage(isLoggedIn ? "Profile saved locally — Supabase profile sync is next" : "Profile saved locally — log in to keep it across devices") ;
     window.setTimeout(() => setProfileMessage(""), 2200);
   }
 
@@ -401,6 +443,68 @@ export default function AtlasPage() {
       </section>
 
       <div className="mx-auto max-w-6xl px-5 pb-12">
+        <section className="mt-6 rounded-[28px] border border-white/70 bg-white/75 p-5 shadow-xl backdrop-blur-xl sm:p-6">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+            <div>
+              <p className="text-[11px] font-semibold uppercase tracking-[0.3em] text-[#8a6631]">
+                Atlas account
+              </p>
+              <h2 className="mt-2 text-2xl font-bold tracking-tight text-slate-950">
+                {isLoggedIn ? "Your Atlas Log is active" : "Start your Atlas Log"}
+              </h2>
+              <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">
+                {isLoggedIn
+                  ? `Signed in${accountEmail ? ` as ${accountEmail}` : ""}. Your next step is syncing this profile and your journeys to Supabase so they work across devices.`
+                  : "Build trips for free. Log in when you want to save your profile, publish journeys, upload memories, and keep your travel captain’s log across devices."}
+              </p>
+              {!isAuthReady ? (
+                <p className="mt-2 text-xs font-semibold text-slate-500">Checking account session...</p>
+              ) : null}
+              {authMessage ? (
+                <p className="mt-3 rounded-2xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700">
+                  {authMessage}
+                </p>
+              ) : null}
+            </div>
+
+            <div className="flex flex-col gap-3 sm:flex-row lg:flex-col">
+              {isLoggedIn ? (
+                <>
+                  <button
+                    type="button"
+                    onClick={handleOpenEditProfile}
+                    className="rounded-full bg-slate-900 px-6 py-3 text-center text-sm font-semibold text-white shadow transition hover:-translate-y-0.5"
+                  >
+                    Edit Travel Identity
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleSignOut}
+                    className="rounded-full border border-slate-200 bg-white px-6 py-3 text-center text-sm font-semibold text-slate-900 transition hover:-translate-y-0.5"
+                  >
+                    Sign Out
+                  </button>
+                </>
+              ) : (
+                <>
+                  <Link
+                    href={loginRedirect}
+                    className="rounded-full bg-slate-900 px-6 py-3 text-center text-sm font-semibold text-white shadow transition hover:-translate-y-0.5"
+                  >
+                    Start My Atlas
+                  </Link>
+                  <Link
+                    href="/build"
+                    className="rounded-full border border-slate-200 bg-white px-6 py-3 text-center text-sm font-semibold text-slate-900 transition hover:-translate-y-0.5"
+                  >
+                    Build Without Login
+                  </Link>
+                </>
+              )}
+            </div>
+          </div>
+        </section>
+
         <section className="mt-6 rounded-[28px] border border-white/70 bg-white/75 p-6 shadow-xl backdrop-blur-xl sm:p-8">
           <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
             <div className="flex flex-col gap-5 sm:flex-row sm:items-center">

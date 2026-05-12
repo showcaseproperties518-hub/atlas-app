@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { FormEvent, useState } from "react";
+import { FormEvent, useMemo, useState } from "react";
 import {
   ATLAS_BUILD_PREFILL_STORAGE_KEY,
   ATLAS_BUILD_STORAGE_KEY,
@@ -466,10 +466,52 @@ function getRandomTripSet() {
     ],
   };
 }
+function getRegionalTripSet(latitude: number, longitude: number) {
+  const isCapitalRegion = latitude > 41.8 && latitude < 44.2 && longitude > -75.2 && longitude < -72.3;
+  const isNortheast = latitude > 38.5 && latitude < 47.5 && longitude > -80.5 && longitude < -66.5;
+
+  if (isCapitalRegion) {
+    return {
+      label: "near Albany / Capital Region",
+      trips: localTripIdeas.filter((trip) =>
+        [
+          "Hudson Valley Waterfalls",
+          "Lake George Family Weekend",
+          "Saratoga Food + Spa Weekend",
+          "Catskills Cabin + Falls",
+        ].includes(trip.title)
+      ),
+    };
+  }
+
+  if (isNortheast) {
+    return {
+      label: "near the Northeast",
+      trips: localTripIdeas.filter((trip) =>
+        [
+          "NYC Family Adventure",
+          "Catskills Cabin + Falls",
+          "Cape Cod Beach House Weekend",
+          "Quebec City Winter Magic",
+          "Wildwood Boardwalk + Beach",
+        ].includes(trip.title)
+      ),
+    };
+  }
+
+  return {
+    label: "near your area",
+    trips: localTripIdeas.slice().sort(() => Math.random() - 0.5).slice(0, 4),
+  };
+}
+
 
 export default function HomePage() {
   const router = useRouter();
   const [destination, setDestination] = useState("");
+  const [locationStatus, setLocationStatus] = useState<"idle" | "loading" | "ready" | "denied" | "unsupported">("idle");
+  const [locationLabel, setLocationLabel] = useState("near you");
+  const [locationTrips, setLocationTrips] = useState<HomeTripCard[]>([]);
 
   const [
     {
@@ -479,6 +521,17 @@ export default function HomePage() {
       travelerStories,
     },
   ] = useState(getRandomTripSet);
+
+  const displayedNearbyTrips = useMemo(() => {
+    return locationTrips.length > 0 ? locationTrips : nearbyTrips;
+  }, [locationTrips, nearbyTrips]);
+
+  const localSectionLabel = useMemo(() => {
+    if (locationStatus === "ready") return `Local trips ${locationLabel}`;
+    if (locationStatus === "loading") return "Finding local trips...";
+    if (locationStatus === "denied") return "Default local ideas";
+    return "Easy trips near you";
+  }, [locationLabel, locationStatus]);
 
   const normalizeTripForm = (prefill: TripPrefill) => {
     const destinationValue = prefill.destination.trim();
@@ -545,6 +598,37 @@ export default function HomePage() {
   const goToBuildWithPrefill = (prefill: TripPrefill) => {
     saveBuildPrefill(prefill);
     router.push("/build");
+  };
+
+  const handleUseLocation = () => {
+    if (typeof window === "undefined" || !navigator.geolocation) {
+      setLocationStatus("unsupported");
+      return;
+    }
+
+    setLocationStatus("loading");
+
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        const regional = getRegionalTripSet(
+          position.coords.latitude,
+          position.coords.longitude
+        );
+
+        setLocationTrips(regional.trips.slice(0, 4));
+        setLocationLabel(regional.label);
+        setLocationStatus("ready");
+      },
+      () => {
+        setLocationStatus("denied");
+        setLocationTrips([]);
+      },
+      {
+        enableHighAccuracy: false,
+        timeout: 8000,
+        maximumAge: 1000 * 60 * 20,
+      }
+    );
   };
 
   const handleSearchSubmit = (e: FormEvent<HTMLFormElement>) => {
@@ -797,20 +881,49 @@ export default function HomePage() {
                 Local AI right now
               </p>
               <h2 className="mt-1 text-3xl font-bold tracking-tight text-[#1f2933]">
-                Easy trips near you
+                {localSectionLabel}
               </h2>
+              <p className="mt-2 max-w-xl text-sm leading-6 text-slate-600">
+                Tap location when you want Atlas to personalize nearby escapes. We do not ask until you choose it.
+              </p>
             </div>
 
-            <Link
-              href="/map"
-              className="hidden rounded-full bg-[#1f2933] px-4 py-2 text-sm font-semibold text-white shadow-md transition hover:bg-[#111827] sm:inline-flex"
-            >
-              View map
-            </Link>
+            <div className="flex flex-col gap-2 sm:flex-row">
+              <button
+                type="button"
+                onClick={handleUseLocation}
+                className="rounded-full bg-[#1f2933] px-4 py-2 text-sm font-semibold text-white shadow-md transition hover:bg-[#111827]"
+              >
+                {locationStatus === "loading"
+                  ? "Finding trips..."
+                  : locationStatus === "ready"
+                    ? "Refresh Near Me"
+                    : "Use My Location"}
+              </button>
+
+              <Link
+                href="/map"
+                className="rounded-full border border-[#e2d3bd] bg-white px-4 py-2 text-sm font-semibold text-[#1f2933] shadow-sm transition hover:bg-[#fff7eb]"
+              >
+                View map
+              </Link>
+            </div>
           </div>
 
+          {locationStatus === "denied" ? (
+            <div className="mb-4 rounded-[1.5rem] border border-[#e2d3bd] bg-white/85 px-4 py-3 text-sm leading-6 text-slate-600">
+              Location was not shared, so Atlas is showing strong local starter ideas. You can still build any trip without location.
+            </div>
+          ) : null}
+
+          {locationStatus === "unsupported" ? (
+            <div className="mb-4 rounded-[1.5rem] border border-[#e2d3bd] bg-white/85 px-4 py-3 text-sm leading-6 text-slate-600">
+              Your browser does not support location sharing, so Atlas is showing default local ideas.
+            </div>
+          ) : null}
+
           <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
-            {nearbyTrips.map((trip) => (
+            {displayedNearbyTrips.map((trip) => (
               <button
                 key={trip.title}
                 type="button"
@@ -882,7 +995,7 @@ export default function HomePage() {
               Local ideas, trending places, and real journeys will blend together.
             </h3>
             <p className="mt-2 text-sm leading-6 text-white/75">
-              These starter trips refresh from a larger Atlas AI idea pool until real published journeys take over the homepage.
+              These starter trips refresh from a larger Atlas AI idea pool. When a visitor taps Use My Location, Atlas can surface nearby escapes first, then blend in real published journeys as the map grows.
             </p>
           </div>
         </div>
