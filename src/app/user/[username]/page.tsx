@@ -189,6 +189,24 @@ function getStoredAtlasProfile() {
   }
 }
 
+function mapDbProfileToAtlasProfile(row: any): AtlasProfile {
+  return {
+    name: row?.name || "",
+    username: sanitizeUsername(row?.username || ""),
+    bio: row?.bio || "",
+    avatar: row?.avatar || "",
+    bannerImage: row?.banner_image || "",
+    location: row?.location || "",
+    travelerType: row?.traveler_type || "Adventure Traveler",
+    countriesVisited: row?.countries_visited || 0,
+    instagram: row?.instagram || "",
+    tiktok: row?.tiktok || "",
+    youtube: row?.youtube || "",
+    facebook: row?.facebook || "",
+    joinedAt: row?.joined_at || "2026",
+  };
+}
+
 function normalizeDateRange(startDate?: string | null, endDate?: string | null) {
   if (startDate && endDate) return `${startDate} → ${endDate}`;
   if (startDate) return startDate;
@@ -380,24 +398,92 @@ export default function UserProfilePage() {
   const username = formatUsername(params?.username);
   const [profile, setProfile] = useState<AtlasProfile>(defaultAtlasProfile);
   const [creatorJourneys, setCreatorJourneys] = useState<ProfileJourney[]>([]);
+  const [isLoadingProfile, setIsLoadingProfile] = useState(true);
   const [isLoadingJourneys, setIsLoadingJourneys] = useState(true);
+  const [profileUserId, setProfileUserId] = useState<string | null>(null);
+  const [profileWasFound, setProfileWasFound] = useState(false);
 
   const profileMatchesRoute = sanitizeUsername(profile.username) === sanitizeUsername(username);
-  const displayName = profileMatchesRoute ? getProfileDisplayName(profile, username) : getDisplayName(username);
-  const profileBio = profileMatchesRoute ? getProfileBio(profile, username) : getCreatorBio(username);
-  const profileAvatar = profileMatchesRoute ? profile.avatar : "";
-  const travelerType = profileMatchesRoute ? profile.travelerType || "Adventure Traveler" : "Atlas Traveler";
-  const profileLocation = profileMatchesRoute ? profile.location || "" : "";
-  const profileCountries = profileMatchesRoute ? profile.countriesVisited || 0 : 0;
-  const joinedAt = profileMatchesRoute ? profile.joinedAt || "2026" : "2026";
-  const profileInstagram = profileMatchesRoute ? profile.instagram : "";
-  const profileTiktok = profileMatchesRoute ? profile.tiktok : "";
-  const profileYoutube = profileMatchesRoute ? profile.youtube : "";
-  const profileFacebook = profileMatchesRoute ? profile.facebook : "";
+  const displayName =
+    profileWasFound || profileMatchesRoute
+      ? getProfileDisplayName(profile, username)
+      : getDisplayName(username);
+  const profileBio =
+    profileWasFound || profileMatchesRoute
+      ? getProfileBio(profile, username)
+      : getCreatorBio(username);
+  const profileAvatar = profileWasFound || profileMatchesRoute ? profile.avatar : "";
+  const travelerType =
+    profileWasFound || profileMatchesRoute
+      ? profile.travelerType || "Adventure Traveler"
+      : "Atlas Traveler";
+  const profileLocation = profileWasFound || profileMatchesRoute ? profile.location || "" : "";
+  const profileCountries = profileWasFound || profileMatchesRoute ? profile.countriesVisited || 0 : 0;
+  const joinedAt = profileWasFound || profileMatchesRoute ? profile.joinedAt || "2026" : "2026";
+  const profileInstagram = profileWasFound || profileMatchesRoute ? profile.instagram : "";
+  const profileTiktok = profileWasFound || profileMatchesRoute ? profile.tiktok : "";
+  const profileYoutube = profileWasFound || profileMatchesRoute ? profile.youtube : "";
+  const profileFacebook = profileWasFound || profileMatchesRoute ? profile.facebook : "";
 
   useEffect(() => {
-    setProfile(getStoredAtlasProfile());
-  }, []);
+    let cancelled = false;
+
+    async function loadPublicProfile() {
+      try {
+        setIsLoadingProfile(true);
+
+        const routeUsername = sanitizeUsername(username);
+        const localProfile = getStoredAtlasProfile();
+
+        if (sanitizeUsername(localProfile.username) === routeUsername) {
+          setProfile(localProfile);
+        }
+
+        const supabase = createClient();
+
+        const { data, error } = await supabase
+          .from("atlas_profiles")
+          .select("*")
+          .eq("username", routeUsername)
+          .maybeSingle();
+
+        if (cancelled) return;
+
+        if (error) {
+          console.error("Failed to load public Atlas profile", error);
+          setProfileWasFound(false);
+          return;
+        }
+
+        if (data) {
+          const publicProfile = mapDbProfileToAtlasProfile(data);
+
+          setProfile(publicProfile);
+          setProfileUserId(data.id || null);
+          setProfileWasFound(true);
+        } else {
+          setProfileWasFound(false);
+          setProfileUserId(null);
+        }
+      } catch (error) {
+        console.error("Failed to load public Atlas profile", error);
+        if (!cancelled) {
+          setProfileWasFound(false);
+          setProfileUserId(null);
+        }
+      } finally {
+        if (!cancelled) {
+          setIsLoadingProfile(false);
+        }
+      }
+    }
+
+    loadPublicProfile();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [username]);
 
   useEffect(() => {
     let cancelled = false;
@@ -406,12 +492,23 @@ export default function UserProfilePage() {
       try {
         setIsLoadingJourneys(true);
         const supabase = createClient();
+        const routeUsername = sanitizeUsername(username);
 
-        const { data, error } = await supabase
+        let query = supabase
           .from("journeys")
           .select("*")
           .eq("is_published", true)
           .order("updated_at", { ascending: false });
+
+        if (profileUserId) {
+          query = query.or(
+            `user_id.eq.${profileUserId},profile_id.eq.${profileUserId},creator_username.eq.${routeUsername}`
+          );
+        } else {
+          query = query.eq("creator_username", routeUsername);
+        }
+
+        const { data, error } = await query;
 
         if (error) {
           console.error("Failed to load profile journeys", error);
@@ -432,12 +529,14 @@ export default function UserProfilePage() {
       }
     }
 
-    loadCreatorJourneys();
+    if (!isLoadingProfile) {
+      loadCreatorJourneys();
+    }
 
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [isLoadingProfile, profileUserId, username]);
 
   const visibleJourneys = creatorJourneys.length > 0 ? creatorJourneys : [];
 
@@ -621,16 +720,22 @@ export default function UserProfilePage() {
               Creator journeys
             </p>
             <h2 className="mt-2 text-3xl font-semibold leading-tight">
-              {visibleJourneys.length > 0 ? "Trips worth watching, saving, and remixing" : "No public trips yet"}
+              {isLoadingProfile || isLoadingJourneys
+                ? "Loading public Atlas profile"
+                : visibleJourneys.length > 0
+                  ? "Trips worth watching, saving, and remixing"
+                  : "No public trips yet"}
             </h2>
             <p className="mt-3 max-w-3xl text-sm leading-6 text-neutral-700">
-              {visibleJourneys.length > 0
-                ? "Creator profiles make Atlas feel alive. Every trip below can open into a usable route, inspire a future reel, or become the starting point for someone else’s version."
-                : "Publish a journey from My Atlas and it will appear here as part of your public travel profile."}
+              {isLoadingProfile || isLoadingJourneys
+                ? "Pulling this creator profile and published journeys from Atlas."
+                : visibleJourneys.length > 0
+                  ? "Creator profiles make Atlas feel alive. Every trip below can open into a usable route, inspire a future reel, or become the starting point for someone else’s version."
+                  : "Publish a journey from My Atlas and it will appear here as part of your public travel profile."}
             </p>
           </div>
 
-          {!isLoadingJourneys && visibleJourneys.length === 0 ? (
+          {!isLoadingProfile && !isLoadingJourneys && visibleJourneys.length === 0 ? (
             <div className="rounded-[34px] border border-white/70 bg-white/84 p-8 text-center shadow-[0_20px_62px_rgba(0,0,0,0.09)]">
               <p className="text-[11px] font-semibold uppercase tracking-[0.34em] text-neutral-500">
                 Public profile
