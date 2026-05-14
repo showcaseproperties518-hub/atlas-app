@@ -277,3 +277,33 @@ export function formatJourneyRange(startDate?: string, endDate?: string) {
     return [startDate, endDate].filter(Boolean).join(" - ");
   }
 }
+
+export function deleteSavedJourney(journeyId: string) {
+  const saved = getSavedJourneys().filter(
+    (item) => item.id !== journeyId
+  );
+
+  safeWrite(ATLAS_SAVED_JOURNEYS_KEY, saved);
+
+  return saved;
+}
+
+export function deletePublishedJourney(journeyId: string) {
+  const published = getPublishedJourneys().filter(
+    (item) => item.id !== journeyId
+  );
+
+  safeWrite(ATLAS_PUBLISHED_JOURNEYS_KEY, published);
+
+  return published;
+}
+
+export function deleteJourneyEverywhere(journeyId: string) {
+  deleteSavedJourney(journeyId);
+  deletePublishedJourney(journeyId);
+
+  return {
+    saved: getSavedJourneys(),
+    published: getPublishedJourneys(),
+  };
+}

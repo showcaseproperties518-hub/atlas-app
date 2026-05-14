@@ -2,10 +2,11 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import type { User } from "@supabase/supabase-js";
+import type { Session, User } from "@supabase/supabase-js";
 import { useRouter } from "next/navigation";
 import {
   AtlasStoredJourney,
+  deleteJourneyEverywhere,
   formatJourneyDate,
   formatJourneyRange,
   getPublishedJourneys,
@@ -161,6 +162,46 @@ function SocialLink({ label, value }: { label: string; value?: string }) {
   );
 }
 
+
+function dbProfileToAtlasProfile(row: any): AtlasProfile {
+  return {
+    name: row?.name || "",
+    username: sanitizeUsername(row?.username || ""),
+    bio: row?.bio || "",
+    avatar: row?.avatar || "",
+    bannerImage: row?.banner_image || "",
+    location: row?.location || "",
+    travelerType: row?.traveler_type || "Adventure Traveler",
+    countriesVisited: row?.countries_visited || 0,
+    instagram: row?.instagram || "",
+    tiktok: row?.tiktok || "",
+    youtube: row?.youtube || "",
+    facebook: row?.facebook || "",
+    joinedAt: row?.joined_at || "2026",
+  };
+}
+
+function profileToDbPayload(profile: AtlasProfile, user: User) {
+  return {
+    id: user.id,
+    email: user.email || "",
+    name: profile.name || "",
+    username: sanitizeUsername(profile.username || ""),
+    bio: profile.bio || "",
+    avatar: profile.avatar || "",
+    banner_image: profile.bannerImage || "",
+    location: profile.location || "",
+    traveler_type: profile.travelerType || "Adventure Traveler",
+    countries_visited: Number(profile.countriesVisited || 0),
+    instagram: normalizeHandle(profile.instagram),
+    tiktok: normalizeHandle(profile.tiktok),
+    youtube: profile.youtube || "",
+    facebook: normalizeHandle(profile.facebook),
+    joined_at: profile.joinedAt || "2026",
+    updated_at: new Date().toISOString(),
+  };
+}
+
 function mapJourneyToCard(
   journey: AtlasStoredJourney,
   fallbackPublished = false
@@ -195,6 +236,7 @@ export default function AtlasPage() {
   const [publishedJourneys, setPublishedJourneys] = useState<AtlasStoredJourney[]>([]);
   const [isReady, setIsReady] = useState(false);
   const [authUser, setAuthUser] = useState<User | null>(null);
+  const [authSession, setAuthSession] = useState<Session | null>(null);
   const [isAuthReady, setIsAuthReady] = useState(false);
   const [authMessage, setAuthMessage] = useState("");
 
@@ -212,20 +254,99 @@ export default function AtlasPage() {
 
   useEffect(() => {
     const supabase = createClient();
+    let cancelled = false;
 
-    supabase.auth.getUser().then(({ data }) => {
-      setAuthUser(data.user ?? null);
-      setIsAuthReady(true);
-    });
+    async function loadAuthAndProfile() {
+      try {
+        const {
+          data: { session },
+        } = await supabase.auth.getSession();
+
+        if (cancelled) return;
+
+        setAuthSession(session ?? null);
+        setAuthUser(session?.user ?? null);
+
+        if (session?.user) {
+          const { data: existingProfile, error } = await supabase
+            .from("atlas_profiles")
+            .select("*")
+            .eq("id", session.user.id)
+            .maybeSingle();
+
+          if (cancelled) return;
+
+          if (error) {
+            console.error("Failed to load Atlas profile", error);
+            setAuthMessage("Signed in, but profile sync could not load yet.");
+          }
+
+          if (existingProfile) {
+            const loadedProfile = dbProfileToAtlasProfile(existingProfile);
+
+            setProfile(loadedProfile);
+            setDraftProfile(loadedProfile);
+
+            window.localStorage.setItem(
+              ATLAS_PROFILE_STORAGE_KEY,
+              JSON.stringify(loadedProfile)
+            );
+          } else {
+            const localProfile = getInitialProfile();
+
+            const starterProfile: AtlasProfile = {
+              ...localProfile,
+              username:
+                sanitizeUsername(localProfile.username) ||
+                sanitizeUsername(session.user.email?.split("@")[0] || ""),
+              joinedAt: localProfile.joinedAt || "2026",
+            };
+
+            const { error: insertError } = await supabase
+              .from("atlas_profiles")
+              .insert(profileToDbPayload(starterProfile, session.user));
+
+            if (insertError) {
+              console.error("Failed to create Atlas profile", insertError);
+              setAuthMessage("Signed in, but profile setup needs another try.");
+            } else {
+              setProfile(starterProfile);
+              setDraftProfile(starterProfile);
+
+              window.localStorage.setItem(
+                ATLAS_PROFILE_STORAGE_KEY,
+                JSON.stringify(starterProfile)
+              );
+            }
+          }
+        }
+      } catch (error) {
+        console.error("Failed to load auth/profile", error);
+        if (!cancelled) {
+          setAuthMessage("Could not check account session.");
+        }
+      } finally {
+        if (!cancelled) {
+          setIsAuthReady(true);
+        }
+      }
+    }
+
+    loadAuthAndProfile();
 
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
+      setAuthSession(session ?? null);
       setAuthUser(session?.user ?? null);
-      setIsAuthReady(true);
+
+      if (!session?.user) {
+        setIsAuthReady(true);
+      }
     });
 
     return () => {
+      cancelled = true;
       subscription.unsubscribe();
     };
   }, []);
@@ -271,7 +392,7 @@ export default function AtlasPage() {
   const publishedTripsCount = publishedCards.length;
   const isLoggedIn = Boolean(authUser);
   const loginRedirect = "/login";
-  const accountEmail = authUser?.email || "";
+  const accountEmail = authUser?.email || authSession?.user?.email || "";
 
   async function handleSignOut() {
     try {
@@ -312,7 +433,7 @@ export default function AtlasPage() {
     reader.readAsDataURL(file);
   }
 
-  function handleSaveProfile() {
+  async function handleSaveProfile() {
     const nextProfile: AtlasProfile = {
       name: draftProfile.name.trim(),
       username: sanitizeUsername(draftProfile.username),
@@ -331,10 +452,61 @@ export default function AtlasPage() {
 
     setProfile(nextProfile);
     setDraftProfile(nextProfile);
-    window.localStorage.setItem(ATLAS_PROFILE_STORAGE_KEY, JSON.stringify(nextProfile));
+
+    window.localStorage.setItem(
+      ATLAS_PROFILE_STORAGE_KEY,
+      JSON.stringify(nextProfile)
+    );
+
+    if (authUser) {
+      try {
+        const supabase = createClient();
+
+        const { error } = await supabase
+          .from("atlas_profiles")
+          .upsert(profileToDbPayload(nextProfile, authUser));
+
+        if (error) {
+          throw error;
+        }
+
+        setProfileMessage("Profile synced across devices with Atlas");
+      } catch (error) {
+        console.error("Profile sync failed", error);
+        setProfileMessage("Saved locally — cloud sync failed");
+      }
+    } else {
+      setProfileMessage("Profile saved locally — log in to sync across devices");
+    }
+
     setIsEditingProfile(false);
-    setProfileMessage(isLoggedIn ? "Profile saved locally — Supabase profile sync is next" : "Profile saved locally — log in to keep it across devices") ;
-    window.setTimeout(() => setProfileMessage(""), 2200);
+
+    window.setTimeout(() => {
+      setProfileMessage("");
+    }, 2400);
+  }
+
+
+  function handleDeleteJourney(journey: AtlasJourneyCard) {
+    const confirmed = window.confirm(
+      `Delete "${journey.title}" from your Atlas?`
+    );
+
+    if (!confirmed) return;
+
+    deleteJourneyEverywhere(journey.id);
+
+    const nextSaved = getSavedJourneys();
+    const nextPublished = getPublishedJourneys();
+
+    setSavedJourneys(nextSaved);
+    setPublishedJourneys(nextPublished);
+
+    setProfileMessage("Journey deleted from Atlas");
+
+    window.setTimeout(() => {
+      setProfileMessage("");
+    }, 2400);
   }
 
   function handleBuildMyVersion(journey: AtlasStoredJourney) {
@@ -454,7 +626,7 @@ export default function AtlasPage() {
               </h2>
               <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">
                 {isLoggedIn
-                  ? `Signed in${accountEmail ? ` as ${accountEmail}` : ""}. Your next step is syncing this profile and your journeys to Supabase so they work across devices.`
+                  ? `Signed in${accountEmail ? ` as ${accountEmail}` : ""}. Your profile now syncs to Supabase so your Atlas identity can work across devices.`
                   : "Build trips for free. Log in when you want to save your profile, publish journeys, upload memories, and keep your travel captain’s log across devices."}
               </p>
               {!isAuthReady ? (
@@ -811,21 +983,31 @@ export default function AtlasPage() {
                           </p>
                         </div>
 
-                        <div className="mt-4 flex gap-2">
-                          <button
-                            type="button"
-                            onClick={() => handleViewJourney(journey)}
-                            className="flex-1 rounded-full bg-slate-900 px-4 py-3 text-center text-sm font-semibold text-white transition hover:scale-[1.01]"
-                          >
-                            View Journey
-                          </button>
+                        <div className="mt-4 flex flex-col gap-2">
+                          <div className="flex gap-2">
+                            <button
+                              type="button"
+                              onClick={() => handleViewJourney(journey)}
+                              className="flex-1 rounded-full bg-slate-900 px-4 py-3 text-center text-sm font-semibold text-white transition hover:scale-[1.01]"
+                            >
+                              View Journey
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={() => handleBuildMyVersion(journey.originalJourney)}
+                              className="flex-1 rounded-full border border-slate-300 bg-white px-4 py-3 text-sm font-semibold text-slate-900 transition hover:scale-[1.01]"
+                            >
+                              Build My Version
+                            </button>
+                          </div>
 
                           <button
                             type="button"
-                            onClick={() => handleBuildMyVersion(journey.originalJourney)}
-                            className="flex-1 rounded-full border border-slate-300 bg-white px-4 py-3 text-sm font-semibold text-slate-900 transition hover:scale-[1.01]"
+                            onClick={() => handleDeleteJourney(journey)}
+                            className="rounded-full border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700 transition hover:bg-red-100"
                           >
-                            Build My Version
+                            Delete Journey
                           </button>
                         </div>
                       </div>
@@ -919,21 +1101,31 @@ export default function AtlasPage() {
                           </p>
                         </div>
 
-                        <div className="mt-4 flex gap-2">
-                          <button
-                            type="button"
-                            onClick={() => handleViewJourney(journey)}
-                            className="flex-1 rounded-full bg-slate-900 px-4 py-3 text-center text-sm font-semibold text-white transition hover:scale-[1.01]"
-                          >
-                            View Journey
-                          </button>
+                        <div className="mt-4 flex flex-col gap-2">
+                          <div className="flex gap-2">
+                            <button
+                              type="button"
+                              onClick={() => handleViewJourney(journey)}
+                              className="flex-1 rounded-full bg-slate-900 px-4 py-3 text-center text-sm font-semibold text-white transition hover:scale-[1.01]"
+                            >
+                              View Journey
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={() => handleBuildMyVersion(journey.originalJourney)}
+                              className="flex-1 rounded-full border border-slate-300 bg-white px-4 py-3 text-sm font-semibold text-slate-900 transition hover:scale-[1.01]"
+                            >
+                              Build My Version
+                            </button>
+                          </div>
 
                           <button
                             type="button"
-                            onClick={() => handleBuildMyVersion(journey.originalJourney)}
-                            className="flex-1 rounded-full border border-slate-300 bg-white px-4 py-3 text-sm font-semibold text-slate-900 transition hover:scale-[1.01]"
+                            onClick={() => handleDeleteJourney(journey)}
+                            className="rounded-full border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700 transition hover:bg-red-100"
                           >
-                            Build My Version
+                            Delete Journey
                           </button>
                         </div>
                       </div>
